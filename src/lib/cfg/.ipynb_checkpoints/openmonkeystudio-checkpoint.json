@@ -1,0 +1,15 @@
+{
+    "root":"/local/eckerlab/",
+    "train":
+    {
+        "mot15":"./data/openmonkeystudio.train"
+    },
+    "test_emb":
+    {
+        "mot15":"./data/openmonkeystudio.val"
+    },
+    "test":
+    {
+        "mot15":"./data/openmonkeystudio.val"
+    }
+}

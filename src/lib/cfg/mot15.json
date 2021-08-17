@@ -1,5 +1,5 @@
 {
-    "root":"/home/zyf/dataset",
+    "root":"/local/eckerlab/",
     "train":
     {
         "mot15":"./data/mot15.train"
