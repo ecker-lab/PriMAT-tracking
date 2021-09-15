@@ -227,8 +227,8 @@ class opts(object):
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
       opt.nID = dataset.nID
-      opt.img_size = (608, 1088) #Hoch, also have to change it in datasets/dataset/jde.py (Load Video)
-      #opt.img_size = (1088, 608) #Quer
+      #opt.img_size = (608, 1088) #Hoch, also have to change it in datasets/jde.py (Load Video)
+      opt.img_size = (1088, 608) #Quer
       #opt.img_size = (864, 480)
       #opt.img_size = (320, 576)
     else:

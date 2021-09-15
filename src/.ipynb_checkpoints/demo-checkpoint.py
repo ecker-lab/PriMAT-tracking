@@ -10,7 +10,7 @@ import os.path as osp
 from opts import opts
 from tracking_utils.utils import mkdir_if_missing
 from tracking_utils.log import logger
-import datasets.dataset.jde as datasets
+import datasets.jde as datasets
 from track import eval_seq
 
 
