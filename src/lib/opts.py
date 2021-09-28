@@ -86,7 +86,7 @@ class opts(object):
                                   'test on test set')
 
     # test
-    self.parser.add_argument('--K', type=int, default=500,
+    self.parser.add_argument('--K', type=int, default=50, #default was 500
                              help='max number of output objects.') 
     self.parser.add_argument('--not_prefetch_test', action='store_true',
                              help='not use parallal data pre-processing.')
@@ -107,10 +107,10 @@ class opts(object):
     self.parser.add_argument('--test_mot20', default=False, help='test mot20')
     self.parser.add_argument('--val_hie', default=False, help='val hie')
     self.parser.add_argument('--test_hie', default=False, help='test hie')
-    self.parser.add_argument('--conf_thres', type=float, default=0.4, help='confidence threshold for tracking')
-    self.parser.add_argument('--emb_sim_thres', type=float, default=0.4, help='embedding similarity threshold of new detection with detections from prior frames')
+    self.parser.add_argument('--conf_thres', type=float, default=0.01, help='confidence threshold for tracking')
+    self.parser.add_argument('--emb_sim_thres', type=float, default=0.6, help='embedding similarity threshold of new detection with detections from prior frames')
     self.parser.add_argument('--iou_sim_thres', type=float, default=0.5, help='iou similarity threshold of new detection with detections from prior frames')
-    #self.parser.add_argument('--det_thres', type=float, default=0.3, help='confidence thresh for detection')
+    self.parser.add_argument('--det_thres', type=float, default=0.7, help='thresh for initializing new track')
     #self.parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresh for nms')
     self.parser.add_argument('--track_buffer', type=int, default=30, help='tracking buffer')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
