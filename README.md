@@ -51,51 +51,24 @@ cd src
 python gen_labels_crowd_id.py
 ```
 
-* **2DMOT15 and MOT20** 
-[2DMOT15](https://motchallenge.net/data/2D_MOT_2015/) and [MOT20](https://motchallenge.net/data/MOT20/) can be downloaded from the official webpage of MOT challenge. After downloading, you should prepare the data in the following structure:
-```
-MOT15
-   |——————images
-   |        └——————train
-   |        └——————test
-   └——————labels_with_ids
-            └——————train(empty)
-MOT20
-   |——————images
-   |        └——————train
-   |        └——————test
-   └——————labels_with_ids
-            └——————train(empty)
-```
-Then, you can change the seq_root and label_root in src/gen_labels_15.py and src/gen_labels_20.py and run:
-```
-cd src
-python gen_labels_15.py
-python gen_labels_20.py
-```
-to generate the labels of 2DMOT15 and MOT20. The seqinfo.ini files of 2DMOT15 can be downloaded here [[Google]](https://drive.google.com/open?id=1kJYySZy7wyETH4fKMzgJrYUrTfxKlN1w), [[Baidu],code:8o0w](https://pan.baidu.com/s/1zb5tBW7-YTzWOXpd9IzS0g).
+More general, you have to use the annotation files to create one .txt file in labels_with_ids. These should match the names of all files in the images folders.
 
 ## Pretrained models and baseline model
 * **Pretrained models**
 
 DLA-34 COCO pretrained model: [DLA-34 official](https://drive.google.com/file/d/1pl_-ael8wERdUREEnaIfqOV_VF2bEVRT/view).
-After downloading, you should put the pretrained models in the following structure:
-```
-${FAIRMOT_ROOT}
-   └——————models
-           └——————ctdet_coco_dla_2x.pth
-```
+
 * **Baseline model**
 
 Our baseline FairMOT model (DLA-34 backbone) is pretrained on the CrowdHuman for 60 epochs with the self-supervised learning approach and then trained on the MIX dataset for 30 epochs. The models can be downloaded here: 
 crowdhuman_dla34.pth [[Google]](https://drive.google.com/file/d/1SFOhg_vos_xSYHLMTDGFVZBYjo8cr2fG/view?usp=sharing) [[Baidu, code:ggzx ]](https://pan.baidu.com/s/1JZMCVDyQnQCa5veO73YaMw) [[Onedrive]](https://microsoftapc-my.sharepoint.com/:u:/g/personal/v-yifzha_microsoft_com/EUsj0hkTNuhKkj9bo9kE7ZsBpmHvqDz6DylPQPhm94Y08w?e=3OF4XN).
 fairmot_dla34.pth [[Google]](https://drive.google.com/file/d/1iqRQjsG9BawIl8SlFomMg5iwkb6nqSpi/view?usp=sharing) [[Baidu, code:uouv]](https://pan.baidu.com/s/1H1Zp8wrTKDk20_DSPAeEkg) [[Onedrive]](https://microsoftapc-my.sharepoint.com/:u:/g/personal/v-yifzha_microsoft_com/EWHN_RQA08BDoEce_qFW-ogBNUsb0jnxG3pNS3DJ7I8NmQ?e=p0Pul1). (This is the model we get 73.7 MOTA on the MOT17 test set. )
-After downloading, you should put the baseline model in the following structure:
+After downloading, you should put the models in the following structure:
 ```
 ${FAIRMOT_ROOT}
    └——————models
            └——————fairmot_dla34.pth
-           └——————...
+           └——————ctdet_coco_dla_2x.pth
 ```
 
 ## Training
