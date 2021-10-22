@@ -189,6 +189,7 @@ class JDETracker(object):
         self.lost_stracks = []  # type: list[STrack]
         self.removed_stracks = []  # type: list[STrack]
 
+        #self.prediction_hm = None
         self.frame_id = 0
         self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
         self.max_time_lost = self.buffer_size
@@ -235,6 +236,8 @@ class JDETracker(object):
         height = img0.shape[0]
         inp_height = im_blob.shape[2]
         inp_width = im_blob.shape[3]
+        #if self.prediction_hm is None:
+        #    self.prediction_hm = torch.ones((int(inp_height/4), int(inp_width/4))).to(self.opt.device)
         c = np.array([width / 2., height / 2.], dtype=np.float32)
         s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
         meta = {'c': c, 's': s,
@@ -245,6 +248,7 @@ class JDETracker(object):
         with torch.no_grad():
             output = self.model(im_blob)[-1]
             hm = output['hm'].sigmoid_()
+            #hm = hm * self.prediction_hm
             wh = output['wh']
             id_feature = output['id']
             id_feature = F.normalize(id_feature, dim=1)
@@ -258,7 +262,7 @@ class JDETracker(object):
         dets = self.post_process(dets, meta)
         dets = self.merge_outputs([dets])[1]
 
-        # low threshold (0.004) to allow many potential detections
+        # low threshold (0.01) to allow many potential detections
         remain_inds = dets[:, 4] > self.opt.conf_thres 
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
@@ -279,6 +283,28 @@ class JDETracker(object):
         strack_pool = joint_stracks(tracked_stracks, self.lost_stracks)
         # Predict the current location with KF
         STrack.multi_predict(strack_pool)
+        
+        '''
+        # Using the outputs from the kalman filter 
+        
+        empty_hm = torch.zeros((int(inp_height/4), int(inp_width/4))).to(self.opt.device)
+        for track in strack_pool:
+            mu = track.mean[:2]/4
+            Sigma = track.covariance[:2, :2]/4
+            X = np.linspace(0, int(inp_width/4), int(inp_width/4))
+            Y = np.linspace(0, int(inp_height/4), int(inp_height/4))
+            X, Y = np.meshgrid(X, Y)
+            pos = np.empty(X.shape + (2,))
+            pos[:, :, 0] = X
+            pos[:, :, 1] = Y
+            Z = matching.multivariate_gaussian(pos, mu, Sigma)
+            Z = 2.0 * Z / (np.max(Z) + 0.0000001)
+            
+            empty_hm = empty_hm + torch.from_numpy(Z).to(self.opt.device)
+        self.prediction_hm = empty_hm
+        '''
+        
+        
         emb_dists = matching.embedding_distance(strack_pool, detections)
         iou_dists = matching.iou_distance(strack_pool, detections)
         

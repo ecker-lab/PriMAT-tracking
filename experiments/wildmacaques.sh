@@ -1,3 +1,8 @@
 cd src
-python train.py mot --exp_id wildmacaques --load_model '../models/mcqcp/mcqcp200.pth' --num_epochs 200 --lr_step '150' --gpus 0 --batch_size 4 --data_cfg '../src/lib/cfg/wildmacaques.json' --data_dir '/usr/users/agecker/datasets/'
+python train.py mot --exp_id wildmacaques0 --load_model '../models/mcqcpz/mcqcpz200.pth' --num_epochs 12 --lr_step '150' --gpus 0 --batch_size 4 --data_cfg '../src/lib/cfg/wildmacaques0.json' --data_dir '/usr/users/agecker/datasets/'
+python train.py mot --exp_id wildmacaques1 --load_model '../models/mcqcpz/mcqcpz200.pth' --num_epochs 12 --lr_step '150' --gpus 0 --batch_size 4 --data_cfg '../src/lib/cfg/wildmacaques1.json' --data_dir '/usr/users/agecker/datasets/'
+python train.py mot --exp_id wildmacaques2 --load_model '../models/mcqcpz/mcqcpz200.pth' --num_epochs 12 --lr_step '150' --gpus 0 --batch_size 4 --data_cfg '../src/lib/cfg/wildmacaques2.json' --data_dir '/usr/users/agecker/datasets/'
+python train.py mot --exp_id wildmacaques3 --load_model '../models/mcqcpz/mcqcpz200.pth' --num_epochs 12 --lr_step '150' --gpus 0 --batch_size 4 --data_cfg '../src/lib/cfg/wildmacaques3.json' --data_dir '/usr/users/agecker/datasets/'
+python train.py mot --exp_id wildmacaques4 --load_model '../models/mcqcpz/mcqcpz200.pth' --num_epochs 12 --lr_step '150' --gpus 0 --batch_size 4 --data_cfg '../src/lib/cfg/wildmacaques4.json' --data_dir '/usr/users/agecker/datasets/'
+python train.py mot --exp_id wildmacaques5 --load_model '../models/mcqcpz/mcqcpz200.pth' --num_epochs 12 --lr_step '150' --gpus 0 --batch_size 4 --data_cfg '../src/lib/cfg/wildmacaques5.json' --data_dir '/usr/users/agecker/datasets/'
 cd ..

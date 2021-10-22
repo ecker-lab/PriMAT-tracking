@@ -33,7 +33,7 @@ def demo(opt):
 
     if opt.output_format == 'video':
         output_video_path = osp.join(result_root, opt.output_name + '.mp4')
-        cmd_str = 'ffmpeg -f image2 -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}'.format(osp.join(result_root, 'frame'), output_video_path)
+        cmd_str = 'ffmpeg -y -f image2 -i {}/%05d.jpg -b 5000k -c:v mpeg4 {}'.format(osp.join(result_root, 'frame'), output_video_path)
         os.system(cmd_str)
 
 
