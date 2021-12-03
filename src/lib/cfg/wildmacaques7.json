@@ -1,0 +1,15 @@
+{
+    "root":"/usr/users/agecker/datasets/",
+    "train":
+    {
+        "wildmacaques_train":"./data/wildmacaques7.train"
+    },
+    "test_emb":
+    {
+        "wildmacaques_train":"./data/wildmacaques7.train"
+    },
+    "test":
+    {
+        "wildmacaques_train":"./data/wildmacaques7.train"
+    }
+}

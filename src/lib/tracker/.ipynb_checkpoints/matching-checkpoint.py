@@ -122,6 +122,30 @@ def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):
     return cost_matrix
 
 
+def multivariate_gaussian(pos, mu, Sigma):
+    n = mu.shape[0]
+    Sigma_det = np.linalg.det(Sigma)
+    Sigma_inv = np.linalg.inv(Sigma)
+    N = np.sqrt((2*np.pi)**n * Sigma_det)
+    # This einsum call calculates (x-mu)T.Sigma-1.(x-mu) in a vectorized
+    # way across all the input variables.
+    fac = np.einsum('...k,kl,...l->...', pos-mu, Sigma_inv, pos-mu)
+
+    return np.exp(-fac / 2) / N
+
+def gate_cost_matrix(kf, cost_matrix, tracks, detections, only_position=False):
+    if cost_matrix.size == 0:
+        return cost_matrix
+    gating_dim = 2 if only_position else 4
+    gating_threshold = kalman_filter.chi2inv95[gating_dim]
+    measurements = np.asarray([det.to_xyah() for det in detections])
+    for row, track in enumerate(tracks):
+        gating_distance = kf.gating_distance(
+            track.mean, track.covariance, measurements, only_position)
+        cost_matrix[row, gating_distance > gating_threshold] = np.inf
+    return cost_matrix
+
+
 def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda_=0.98):
     if cost_matrix.size == 0:
         return cost_matrix
@@ -134,14 +158,3 @@ def fuse_motion(kf, cost_matrix, tracks, detections, only_position=False, lambda
         cost_matrix[row, gating_distance > gating_threshold] = np.inf
         cost_matrix[row] = lambda_ * cost_matrix[row] + (1 - lambda_) * gating_distance
     return cost_matrix
-
-def multivar_gaussian(pos, mu, Sigma):
-    n = mu.shape[0]
-    Sigma_det = np.linalg.det(Sigma)
-    Sigma_inv = np.linalg.inv(Sigma)
-    N = np.sqrt((2*np.pi)**n * Sigma_det)
-    # This einsum call calculates (x-mu)T.Sigma-1.(x-mu) in a vectorized
-    # way across all the input variables.
-    fac = np.einsum('...k,kl,...l->...', pos-mu, Sigma_inv, pos-mu)
-
-    return np.exp(-fac / 2) / N

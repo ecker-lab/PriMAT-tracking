@@ -225,7 +225,7 @@ class KalmanFilter(object):
         new_covariance = covariance - np.linalg.multi_dot((
             kalman_gain, projected_cov, kalman_gain.T))
         return new_mean, new_covariance
-
+    
     def gating_distance(self, mean, covariance, measurements,
                         only_position=False, metric='maha'):
         """Compute gating distance between state distribution and measurements.
