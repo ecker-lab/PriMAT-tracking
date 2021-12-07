@@ -537,7 +537,8 @@ class JDETracker_Kalman(JDETracker):
         inp_height = im_blob.shape[2]
         inp_width = im_blob.shape[3]
         if self.prediction_hm is None:
-            self.prediction_hm = torch.ones((int(inp_height/4), int(inp_width/4))).to(self.opt.device)
+            self.predition_hm = 1
+            kalman_hm = torch.ones((int(inp_height/4), int(inp_width/4))).to(self.opt.device)
         c = np.array([width / 2., height / 2.], dtype=np.float32)
         s = max(float(inp_width) / float(inp_height) * height, width) * 1.0
         meta = {'c': c, 's': s,
@@ -548,7 +549,7 @@ class JDETracker_Kalman(JDETracker):
         with torch.no_grad():
             output = self.model(im_blob)[-1]
             hm0 = output['hm'].sigmoid_()
-            hm = hm0 * self.prediction_hm
+            hm = torch.mul(hm0, kalman_hm)
             wh = output['wh']
             id_feature = output['id']
             id_feature = F.normalize(id_feature, dim=1)
@@ -571,12 +572,12 @@ class JDETracker_Kalman(JDETracker):
         dets0 = self.merge_outputs([dets0])[1]
 
         # high threshold (0.7) for new detections
-        remain_inds = dets0[:, 4] > 0.6
+        remain_inds = dets0[:, 4] > self.opt.det_thres
         dets0 = dets0[remain_inds]
         id_feature0 = id_feature0[remain_inds]
         
         # low threshold (0.01) to allow many potential detections
-        remain_inds = dets[:, 4] > 0.01 #self.opt.conf_thres 
+        remain_inds = dets[:, 4] > self.opt.conf_thres 
         dets = dets[remain_inds]
         id_feature = id_feature[remain_inds]
         
@@ -618,18 +619,20 @@ class JDETracker_Kalman(JDETracker):
             pos[:, :, 0] = X
             pos[:, :, 1] = Y
             Z = matching.multivariate_gaussian(pos, mu, Sigma)
-            Z = 2.0 * Z / (np.max(Z) + 0.0000001)
+            Z = 50.0 * Z / (np.max(Z) + 0.0000001)
             
             kalman_hm = kalman_hm + torch.from_numpy(Z).to(self.opt.device)
         
-        self.prediction_hm = kalman_hm
+        kalman_hm = torch.max(kalman_hm, torch.ones_like(kalman_hm))
+        
         
         
         emb_dists = matching.embedding_distance(strack_pool, detections)
         iou_dists = matching.iou_distance(strack_pool, detections)
+        iou_dists_ind = ((iou_dists > 0.8) + 1) ** 5
         
         #pointwise multiplication of the two distance matrices
-        dists = np.multiply(emb_dists, iou_dists)
+        dists = np.multiply(np.multiply(emb_dists, iou_dists), iou_dists_ind)
         
         if iou_dists.size == 0:
             min_dist = np.array([])
@@ -679,6 +682,8 @@ class JDETracker_Kalman(JDETracker):
                     track.activate(self.kalman_filter, self.frame_id)
                     activated_stracks.append(track)
         
+        
+        # new detections
         for i, track in enumerate(new_detections):
             if (len(min_dist0) > 0):
                 if min_dist0[i] > 0.5:

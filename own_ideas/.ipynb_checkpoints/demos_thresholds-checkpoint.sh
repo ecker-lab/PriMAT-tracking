@@ -6,11 +6,11 @@ cd /usr/users/vogg/FairMOT/
 for vid in VID_20210223_123630_0 VID_20210224_114038_0 VID_20210224_115729_0 VID_20210223_123817_0 VID_20210224_115455_0 VID_20210223_123854_0 VID_20210228_153846_0
 
 do
-    for c in 0.05
+    for c in 0.02
     do
-        for e in $(seq 0.2 0.1 0.6)
+        for e in 0.3
         do
-            for i in 0.7
+            for i in 0.7 #$(seq 0.8 0.1 0.9)
             do
                 for t in 0.5  #proportion embedding
                 do
