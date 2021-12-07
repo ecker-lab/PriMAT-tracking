@@ -39,6 +39,7 @@ cd DCNv2
 * In order to run the code on videos, you also need to install [ffmpeg](https://www.ffmpeg.org/).
 ```
 sudo apt install ffmpeg
+```
 
 ## Data preparation
 
