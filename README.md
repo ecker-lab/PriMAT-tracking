@@ -37,6 +37,8 @@ cd DCNv2
 ./make.sh
 ```
 * In order to run the code on videos, you also need to install [ffmpeg](https://www.ffmpeg.org/).
+```
+sudo apt install ffmpeg
 
 ## Data preparation
 
@@ -68,7 +70,7 @@ DLA-34 COCO pretrained model: [DLA-34 official](https://drive.google.com/file/d/
 
 * **Baseline model**
 
-Our baseline FairMOT model (DLA-34 backbone) is pretrained on the CrowdHuman for 60 epochs with the self-supervised learning approach and then trained on the MIX dataset for 30 epochs. The models can be downloaded here: 
+The baseline FairMOT model (DLA-34 backbone) is pretrained on the CrowdHuman for 60 epochs with the self-supervised learning approach and then trained on the MIX dataset for 30 epochs. The models can be downloaded here: 
 crowdhuman_dla34.pth [[Google]](https://drive.google.com/file/d/1SFOhg_vos_xSYHLMTDGFVZBYjo8cr2fG/view?usp=sharing) [[Baidu, code:ggzx ]](https://pan.baidu.com/s/1JZMCVDyQnQCa5veO73YaMw) [[Onedrive]](https://microsoftapc-my.sharepoint.com/:u:/g/personal/v-yifzha_microsoft_com/EUsj0hkTNuhKkj9bo9kE7ZsBpmHvqDz6DylPQPhm94Y08w?e=3OF4XN).
 fairmot_dla34.pth [[Google]](https://drive.google.com/file/d/1iqRQjsG9BawIl8SlFomMg5iwkb6nqSpi/view?usp=sharing) [[Baidu, code:uouv]](https://pan.baidu.com/s/1H1Zp8wrTKDk20_DSPAeEkg) [[Onedrive]](https://microsoftapc-my.sharepoint.com/:u:/g/personal/v-yifzha_microsoft_com/EWHN_RQA08BDoEce_qFW-ogBNUsb0jnxG3pNS3DJ7I8NmQ?e=p0Pul1). (This is the model we get 73.7 MOTA on the MOT17 test set. )
 After downloading, you should put the models in the following structure:
@@ -99,11 +101,6 @@ cd src
 python track.py mot --load_model ../models/fairmot_dla34.pth --conf_thres 0.6
 ```
 to see the tracking results (76.5 MOTA and 79.3 IDF1 using the baseline model). You can also set save_images=True in src/track.py to save the visualization results of each frame. 
-* For ablation study, we evaluate on the other half of the training set of MOT17, you can run:
-```
-cd src
-python track_half.py mot --load_model ../exp/mot/mix_mot17_half_dla34.pth --conf_thres 0.4 --val_mot17 True
-```
 
 ## Videos
 You can input a raw video and get the demo video by running src/demo.py and get the mp4 format of the demo video:
