@@ -107,7 +107,7 @@ class opts(object):
     self.parser.add_argument('--test_mot20', default=False, help='test mot20')
     self.parser.add_argument('--val_hie', default=False, help='val hie')
     self.parser.add_argument('--test_hie', default=False, help='test hie')
-    self.parser.add_argument('--conf_thres', type=float, default=0.01, help='confidence threshold for tracking')
+    self.parser.add_argument('--conf_thres', type=float, default=0.02, help='confidence threshold for tracking')
     self.parser.add_argument('--proportion_emb', type=float, default=2, help='which proportion should the embedding get in the similarity measurement; sim = proportion_emb * emb_sim + iou_sim')
     self.parser.add_argument('--emb_sim_thres', type=float, default=0.6, help='embedding similarity threshold of new detection with detections from prior frames')
     self.parser.add_argument('--iou_sim_thres', type=float, default=0.5, help='iou similarity threshold of new detection with detections from prior frames')

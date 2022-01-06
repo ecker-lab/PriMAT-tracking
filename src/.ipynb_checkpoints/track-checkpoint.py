@@ -12,7 +12,7 @@ import motmetrics as mm
 import numpy as np
 import torch
 
-from tracker.multitracker import JDETracker, JDETracker_Kalman, JDETrackerOld
+from tracker.multitracker import JDETracker, JDETracker_Kalman, JDETrackerOld, JDETrackerTwoThres
 from tracking_utils import visualization as vis
 from tracking_utils.log import logger
 from tracking_utils.timer import Timer
@@ -70,7 +70,7 @@ def write_results_score(filename, results, data_type):
 def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
     if save_dir:
         mkdir_if_missing(save_dir)
-    tracker = JDETracker_Kalman(opt, frame_rate=frame_rate)
+    tracker = JDETracker(opt, frame_rate=frame_rate)
     timer = Timer()
     results = []
     frame_id = 0

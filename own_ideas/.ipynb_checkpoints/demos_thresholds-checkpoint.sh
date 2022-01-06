@@ -10,7 +10,7 @@ do
     do
         for e in 0.3
         do
-            for i in 0.7 #$(seq 0.8 0.1 0.9)
+            for i in 0.7 #$(seq 0.3 0.1 0.7)
             do
                 for t in 0.5  #proportion embedding
                 do
