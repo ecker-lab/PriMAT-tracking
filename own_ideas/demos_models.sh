@@ -10,3 +10,4 @@ do
         python src/demo.py mot --load_model models/mcqcpwild_lr/model_"$i".pth --input_video /usr/users/agecker/datasets/macaque_videos/Videos/"$vid".mp4 --output_root videos/new_tracking/"$vid"/mcqcpwild_lr_"$i" --output_format text --emb_sim_thres 0.3
     done
 done
+
