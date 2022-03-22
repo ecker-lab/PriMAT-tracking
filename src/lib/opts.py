@@ -160,7 +160,11 @@ class opts(object):
                              help='category specific bounding box size.')
     self.parser.add_argument('--not_reg_offset', action='store_true',
                              help='not regress local offset.')
-    
+    # FIXME added! needed for multi class
+    self.parser.add_argument('--reid_cls_ids',
+                                 default='0,1,2,3,4',  # '0,1,2,3,4'
+                                 help='')  # the object classes need to do reid
+
     self.parser.add_argument('-f')
 
   def parse(self, args=''):
@@ -209,9 +213,16 @@ class opts(object):
     return opt
 
   def update_dataset_info_and_set_heads(self, opt, dataset):
+    # TODO in MCMOT default_resolution is default_input_wh
     input_h, input_w = dataset.default_resolution
     opt.mean, opt.std = dataset.mean, dataset.std
     opt.num_classes = dataset.num_classes
+
+    # TODO added from MCMOT
+    for reid_id in opt.reid_cls_ids.split(','):
+            if int(reid_id) > opt.num_classes - 1:
+                print('[Err]: configuration conflict of reid_cls_ids and num_classes!')
+                return
 
     # input_h(w): opt.input_h overrides opt.input_res overrides dataset default
     input_h = opt.input_res if opt.input_res > 0 else input_h
@@ -225,13 +236,17 @@ class opts(object):
 
     if opt.task == 'mot':
       opt.heads = {'hm': opt.num_classes,
-                   'wh': 2 if not opt.ltrb else 4,
+                   # changed 
+                   # 'wh': 2 if not opt.ltrb else 4,
+                   'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
                    'id': opt.reid_dim}
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
-      opt.nID = dataset.nID
+      # opt.nID = dataset.nID
+      if opt.id_weight > 0:
+                opt.nID_dict = dataset.nID_dict
       #opt.img_size = (608, 1088) #Hoch, also have to change it in datasets/jde.py (Load Video)
-      opt.img_size = (1088, 608) #Quer
+      # opt.img_size = (1088, 608) #Quer
       #opt.img_size = (864, 480)
       #opt.img_size = (320, 576)
     else:
@@ -240,16 +255,29 @@ class opts(object):
     return opt
 
   def init(self, args=''):
+    # default_dataset_info = {
+    #   'mot': {'default_resolution': [608, 1088], 'num_classes': 1,
+    #             'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
+    #             'dataset': 'jde', 'nID': 14455},
+    # }
     default_dataset_info = {
-      'mot': {'default_resolution': [608, 1088], 'num_classes': 1,
-                'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
-                'dataset': 'jde', 'nID': 14455},
+            'mot': {'default_input_wh': [opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
+                    'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
+                    'mean': [0.408, 0.447, 0.470],
+                    'std': [0.289, 0.274, 0.278],
+                    'dataset': 'jde',
+                    'nID': 14455,
+                    'nID_dict': {}},
     }
+
     class Struct:
       def __init__(self, entries):
         for k, v in entries.items():
           self.__setattr__(k, v)
-    opt = self.parse(args)
+    # opt = self.parse(args)
+    h_w = default_dataset_info[opt.task]['default_input_wh']
+    opt.img_size = (h_w[1], h_w[0])
+    print('Net input image size: {:d}×{:d}'.format(h_w[1], h_w[0]))
     dataset = Struct(default_dataset_info[opt.task])
     opt.dataset = dataset.dataset
     opt = self.update_dataset_info_and_set_heads(opt, dataset)
