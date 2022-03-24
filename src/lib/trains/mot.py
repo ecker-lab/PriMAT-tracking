@@ -178,15 +178,15 @@ class McMotLoss(torch.nn.Module):
                     reid_loss += self.ce_loss(cls_id_pred, cls_id_target) / float(cls_id_target.nelement())
 
                     # cls_id_pred = self.classifier(id_head).contiguous()
-                    if self.opt.id_loss == 'focal':
-                        reid_target_one_hot = cls_id_pred.new_zeros((cls_id_head.size(0), self.nID)).scatter_(1,
-                                                                                                    cls_id_target.long().view(
-                                                                                                        -1, 1), 1)
-                        reid_loss += sigmoid_focal_loss_jit(cls_id_pred, reid_target_one_hot,
-                                                        alpha=0.25, gamma=2.0, reduction="sum"
-                                                        ) / cls_id_pred.size(0)
-                    else:
-                        reid_loss += self.ce_loss(cls_id_pred, cls_id_target)
+                    # if self.opt.id_loss == 'focal':
+                    #     reid_target_one_hot = cls_id_pred.new_zeros((cls_id_head.size(0), self.nID)).scatter_(1,
+                    #                                                                                 cls_id_target.long().view(
+                    #                                                                                     -1, 1), 1)
+                    #     reid_loss += sigmoid_focal_loss_jit(cls_id_pred, reid_target_one_hot,
+                    #                                     alpha=0.25, gamma=2.0, reduction="sum"
+                    #                                     ) / cls_id_pred.size(0)
+                    # else:
+                    #     reid_loss += self.ce_loss(cls_id_pred, cls_id_target)
 
         det_loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + opt.off_weight * off_loss
 

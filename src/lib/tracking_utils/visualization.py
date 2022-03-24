@@ -1,6 +1,9 @@
 import numpy as np
 import cv2
 
+# mcmot import
+from lib.tracker.multitracker import id2cls
+
 
 def tlwhs_to_tlbrs(tlwhs):
     tlbrs = np.copy(tlwhs)
@@ -25,11 +28,11 @@ def resize_image(image, max_size=800):
     return image
 
 
-def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0., ids2=None):
+def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0., ids2=None, cls_id=0):
     im = np.ascontiguousarray(np.copy(image))
     im_h, im_w = im.shape[:2]
 
-    top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
+    # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
 
     text_scale = max(1, image.shape[1] / 1600.)
     text_thickness = 2
@@ -50,6 +53,14 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0., ids2=N
         color = get_color(abs(obj_id))
         cv2.rectangle(im, intbox[0:2], intbox[2:4], color=color, thickness=line_thickness)
         cv2.putText(im, id_text, (intbox[0], intbox[1] + 30), cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 0, 255),
+                    thickness=text_thickness)
+
+        cv2.putText(im,
+                    id2cls[cls_id],
+                    (int(x1), int(y1)),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    text_scale,
+                    (0, 255, 255),  # cls_id: yellow
                     thickness=text_thickness)
     return im
 
@@ -88,3 +99,129 @@ def plot_detections(image, tlbrs, scores=None, color=(255, 0, 0), ids=None):
         cv2.rectangle(im, (x1, y1), (x2, y2), color, 2)
 
     return im
+
+
+# functions completely taken from mcmot
+def plot_detects(image,
+                 dets_dict,
+                 num_classes,
+                 frame_id,
+                 fps=0.0):
+    img = np.ascontiguousarray(np.copy(image))
+    # im_h, im_w = img.shape[:2]
+
+    text_scale = max(1.0, image.shape[1] / 1200.)  # 1600.
+    text_thickness = 2
+    line_thickness = max(1, int(image.shape[1] / 600.))
+
+    for cls_id in range(num_classes):
+        # plot each object class
+        cls_dets = dets_dict[cls_id]
+
+        cv2.putText(img, 'frame: %d fps: %.2f'
+                    % (frame_id, fps),
+                    (0, int(15 * text_scale)),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    text_scale,
+                    (0, 0, 255),
+                    thickness=2)
+
+        # plot each object of the object class
+        for obj_i, obj in enumerate(cls_dets):
+            # left, top, right, down, score, cls_id
+            x1, y1, x2, y2, score, cls_id = obj
+            cls_name = id2cls[int(cls_id)]
+            box_int = tuple(map(int, (x1, y1, x2, y2)))
+            # cls_color = cls_color_dict[cls_name]
+            cls_color = get_color(abs(cls_id))
+
+            # draw bbox for each object
+            cv2.rectangle(img,
+                          box_int[0:2],
+                          box_int[2:4],
+                          color=cls_color,
+                          thickness=line_thickness)
+
+            # draw class name
+            cv2.putText(img,
+                        cls_name,
+                        (box_int[0], box_int[1]),
+                        cv2.FONT_HERSHEY_PLAIN,
+                        text_scale,
+                        [0, 255, 255],  # cls_id: yellow
+                        thickness=text_thickness)
+
+    return img
+
+
+def plot_tracks(image,
+                tlwhs_dict,
+                obj_ids_dict,
+                num_classes,
+                scores=None,
+                frame_id=0,
+                fps=0.0):
+
+    img = np.ascontiguousarray(np.copy(image))
+    im_h, im_w = img.shape[:2]
+
+    # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
+
+    text_scale = max(1.0, image.shape[1] / 1200.)  # 1600.
+    # text_thickness = 1 if text_scale > 1.1 else 1
+    text_thickness = 2  # 自定义ID文本线宽
+    line_thickness = max(1, int(image.shape[1] / 500.))
+
+    radius = max(5, int(im_w / 140.))
+
+    for cls_id in range(num_classes):
+        cls_tlwhs = tlwhs_dict[cls_id]
+        obj_ids = obj_ids_dict[cls_id]
+
+        cv2.putText(img, 'frame: %d fps: %.2f'
+                    % (frame_id, fps),
+                    (0, int(15 * text_scale)),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    text_scale,
+                    (0, 0, 255),
+                    thickness=2)
+
+        for i, tlwh_i in enumerate(cls_tlwhs):
+            x1, y1, w, h = tlwh_i
+            int_box = tuple(map(int, (x1, y1, x1 + w, y1 + h)))  # x1, y1, x2, y2
+            obj_id = int(obj_ids[i])
+            id_text = '{}'.format(int(obj_id))
+
+            _line_thickness = 1 if obj_id <= 0 else line_thickness
+            color = get_color(abs(obj_id))
+            # cls_color = cls_color_dict[id2cls[cls_id]]
+
+            # draw bbox
+            cv2.rectangle(img=img,
+                          pt1=int_box[0:2],  # (x1, y1)
+                          pt2=int_box[2:4],  # (x2, y2)
+                          color=color,
+                          thickness=line_thickness)
+
+            # draw class name and index
+            cv2.putText(img,
+                        id2cls[cls_id],
+                        (int(x1), int(y1)),
+                        cv2.FONT_HERSHEY_PLAIN,
+                        text_scale,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+            txt_w, txt_h = cv2.getTextSize(id2cls[cls_id],
+                                           fontFace=cv2.FONT_HERSHEY_PLAIN,
+                                           fontScale=text_scale, thickness=text_thickness)
+
+            cv2.putText(img,
+                        id_text,
+                        (int(x1), int(y1) - txt_h),
+                        cv2.FONT_HERSHEY_PLAIN,
+                        text_scale,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+    return img
