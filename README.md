@@ -13,7 +13,8 @@ Using codebase and ideas from FairMOT:
 
 ## Setup
 * Clone this repo, and we'll call the directory that you cloned as ${FAIRMOT_ROOT}
-* Install dependencies. We use python 3.8 and pytorch >= 1.7.0 also for DCNv2 gcc and g++ < 9 are needed.
+* IMPORTANT NOTICE: if you have more than one GPU in your system you have to export one thats supported by cuda 10.2 for the entirety of the setup!
+* Install dependencies. We use python 3.8 and pytorch >= 1.7.0 also for DCNv2 gcc and g++ < 9 are needed (thus they are included in the environment.yaml file).
 ```
 conda env create -f environment.yaml
 conda activate mcmot
