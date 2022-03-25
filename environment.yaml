@@ -1,0 +1,33 @@
+name: mcmot
+channels:
+  - conda-forge
+  - pytorch
+  - anaconda
+  - defaults
+dependencies:
+  - python=3.8
+  - pip
+  - gcc=8
+  - gxx=8
+  - gxx_linux-64
+  - cmake
+  - pytorch==1.7.0
+  - torchvision==0.8.0
+  - cudatoolkit=10.2
+  - pip:
+    - cython
+    - yacs
+    - opencv-python
+    - PyYAML
+    - cython-bbox
+    - scipy
+    - numba
+    - progress
+    - motmetrics
+    - matplotlib
+    - lap
+    - openpyxl
+    - Pillow
+    - tensorboardX
+    - fvcore
+    - adjustText

@@ -13,22 +13,13 @@ Using codebase and ideas from FairMOT:
 
 ## Setup
 * Clone this repo, and we'll call the directory that you cloned as ${FAIRMOT_ROOT}
-* Install dependencies. We use python 3.8 and pytorch >= 1.7.0
+* Install dependencies. We use python 3.8 and pytorch >= 1.7.0 also for DCNv2 gcc and g++ < 9 are needed.
 ```
-conda create -n FairMOT
-conda activate FairMOT
-conda install pytorch==1.7.0 torchvision==0.8.0 cudatoolkit=10.2 -c pytorch
-cd ${FAIRMOT_ROOT}
-pip install cython
-pip install -r requirements.txt
+conda env create -f environment.yaml
+conda activate mcmot
+cd ${fairmot-monkey-tracking}
 ```
 
-To run opencv-python I additionally have to run:
-```
-sudo apt update
-sudo apt install libgl1-mesa-glx
-sudo apt install libglib2.0-0
-```
 
 * They use [DCNv2_pytorch_1.7](https://github.com/ifzhang/DCNv2/tree/pytorch_1.7) in their backbone network (pytorch_1.7 branch). Previous versions can be found in [DCNv2](https://github.com/CharlesShang/DCNv2).
 ```
