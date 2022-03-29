@@ -9,7 +9,7 @@ import sys
 import torch
 USE_TENSORBOARD = True
 try:
-  import tensorboardX
+  from torch.utils.tensorboard import SummaryWriter
   print('Using tensorboardX')
 except:
   USE_TENSORBOARD = False
@@ -39,12 +39,11 @@ class Logger(object):
           
     log_dir = opt.save_dir + '/logs_{}'.format(time_str)
     if USE_TENSORBOARD:
-      self.writer = tensorboardX.SummaryWriter(log_dir=log_dir)
-    else:
-      if not os.path.exists(os.path.dirname(log_dir)):
-        os.mkdir(os.path.dirname(log_dir))
-      if not os.path.exists(log_dir):
-        os.mkdir(log_dir)
+      self.writer = SummaryWriter(opt.tb_dir)
+    if not os.path.exists(os.path.dirname(log_dir)):
+      os.mkdir(os.path.dirname(log_dir))
+    if not os.path.exists(log_dir):
+      os.mkdir(log_dir)
     self.log = open(log_dir + '/log.txt', 'w')
     try:
       os.system('cp {}/opt.txt {}/'.format(opt.save_dir, log_dir))

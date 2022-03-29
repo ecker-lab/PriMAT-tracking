@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 
 # mcmot import
-from lib.tracker.multitracker import id2cls
+# from datasets.jde import id2cls
 
 
 def tlwhs_to_tlbrs(tlwhs):
@@ -56,7 +56,7 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0., ids2=N
                     thickness=text_thickness)
 
         cv2.putText(im,
-                    id2cls[cls_id],
+                    opt.class_names[cls_id],
                     (int(x1), int(y1)),
                     cv2.FONT_HERSHEY_PLAIN,
                     text_scale,
@@ -130,7 +130,7 @@ def plot_detects(image,
         for obj_i, obj in enumerate(cls_dets):
             # left, top, right, down, score, cls_id
             x1, y1, x2, y2, score, cls_id = obj
-            cls_name = id2cls[int(cls_id)]
+            cls_name = opt.class_names[int(cls_id)]
             box_int = tuple(map(int, (x1, y1, x2, y2)))
             # cls_color = cls_color_dict[cls_name]
             cls_color = get_color(abs(cls_id))
@@ -158,6 +158,7 @@ def plot_tracks(image,
                 tlwhs_dict,
                 obj_ids_dict,
                 num_classes,
+                class_names,
                 scores=None,
                 frame_id=0,
                 fps=0.0):
@@ -205,14 +206,14 @@ def plot_tracks(image,
 
             # draw class name and index
             cv2.putText(img,
-                        id2cls[cls_id],
+                        class_names[cls_id],
                         (int(x1), int(y1)),
                         cv2.FONT_HERSHEY_PLAIN,
                         text_scale,
                         (0, 255, 255),  # cls_id: yellow
                         thickness=text_thickness)
 
-            txt_w, txt_h = cv2.getTextSize(id2cls[cls_id],
+            txt_w, txt_h = cv2.getTextSize(class_names[cls_id],
                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
                                            fontScale=text_scale, thickness=text_thickness)
 

@@ -19,6 +19,9 @@ from opts import opts
 from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian
 from utils.utils import xyxy2xywh, xywh2xyxy
 
+#mcmot import
+from collections import defaultdict
+
 
 class LoadImages:  # for inference
     def __init__(self, path, img_size=(1088, 608)):
@@ -360,16 +363,16 @@ class JointDataset(LoadImagesAndLabels):  # for training
     default_resolution = [1088, 608]
     mean = None
     std = None
-    num_classes = 1
+    # num_classes = 5
 
     def __init__(self, opt, root, paths, img_size=(1088, 608), augment=False, transforms=None):
         self.opt = opt
-        dataset_names = paths.keys()
+        # dataset_names = paths.keys()
         self.img_files = OrderedDict()
         self.label_files = OrderedDict()
         self.tid_num = OrderedDict()
         self.tid_start_index = OrderedDict()
-        self.num_classes = 1
+        self.num_classes = len(opt.reid_cls_ids.split(','))
 
         for ds, path in paths.items():
             with open(path, 'r') as file:
@@ -382,25 +385,35 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 for x in self.img_files[ds]]
 
         for ds, label_paths in self.label_files.items():
-            max_index = -1
+            # max_index = -1
+            max_ids_dict = defaultdict(int)
             for lp in label_paths:
                 lb = np.loadtxt(lp)
                 if len(lb) < 1:
                     continue
-                if len(lb.shape) < 2:
-                    img_max = lb[1]
-                else:
-                    img_max = np.max(lb[:, 1])
-                if img_max > max_index:
-                    max_index = img_max
-            self.tid_num[ds] = max_index + 1
+                # if len(lb.shape) < 2:
+                #     img_max = lb[1]
+                # else:
+                #     img_max = np.max(lb[:, 1])
+                # if img_max > max_index:
+                #     max_index = img_max
+                lb = lb.reshape(-1, 6)
+                for item in lb:
+                    if item[1] > max_ids_dict[int(item[0])]:  # item[0]: cls_id, item[1]: track id
+                        max_ids_dict[int(item[0])] = item[1]
+            # track id number
+            self.tid_num[ds] = max_ids_dict
 
-        last_index = 0
-        for i, (k, v) in enumerate(self.tid_num.items()):
-            self.tid_start_index[k] = last_index
-            last_index += v
+        self.tid_start_idx_of_cls_ids = defaultdict(dict)
+        last_idx_dict = defaultdict(int)
+        for k, v in self.tid_num.items():
+            for cls_id, id_num in v.items():
+                self.tid_start_idx_of_cls_ids[k][cls_id] = last_idx_dict[cls_id]
+                last_idx_dict[cls_id] += id_num
 
-        self.nID = int(last_index + 1)
+        self.nID_dict = defaultdict(int)
+        for k, v in last_idx_dict.items():
+            self.nID_dict[k] = int(v)
         self.nds = [len(x) for x in self.img_files.values()]
         self.cds = [sum(self.nds[:i]) for i in range(len(self.nds))]
         self.nF = sum(self.nds)
@@ -413,7 +426,7 @@ class JointDataset(LoadImagesAndLabels):  # for training
         print('=' * 80)
         print('dataset summary')
         print(self.tid_num)
-        print('total # identities:', self.nID)
+        # print('total # identities:', self.nID)
         print('start index')
         print(self.tid_start_index)
         print('=' * 80)
@@ -431,22 +444,26 @@ class JointDataset(LoadImagesAndLabels):  # for training
         imgs, labels, img_path, (input_h, input_w) = self.get_data(img_path, label_path)
         for i, _ in enumerate(labels):
             if labels[i, 1] > -1:
-                labels[i, 1] += self.tid_start_index[ds]
+                cls_id = int(labels[i][0])
+                start_idx = self.tid_start_idx_of_cls_ids[ds][cls_id]
+                labels[i, 1] += start_idx
 
         output_h = imgs.shape[1] // self.opt.down_ratio
         output_w = imgs.shape[2] // self.opt.down_ratio
-        num_classes = self.num_classes
+        # num_classes = self.num_classes
         num_objs = labels.shape[0]
-        hm = np.zeros((num_classes, output_h, output_w), dtype=np.float32)
+        hm = np.zeros((self.num_classes, output_h, output_w), dtype=np.float32)
         if self.opt.ltrb:
             wh = np.zeros((self.max_objs, 4), dtype=np.float32)
         else:
-            wh = np.zeros((self.max_objs, 2), dtype=np.float32)
+            wh = np.zeros((self.max_objs, 2), dtype=np.float32)# mcmot uses this one, without if/else
         reg = np.zeros((self.max_objs, 2), dtype=np.float32)
         ind = np.zeros((self.max_objs, ), dtype=np.int64)
         reg_mask = np.zeros((self.max_objs, ), dtype=np.uint8)
         ids = np.zeros((self.max_objs, ), dtype=np.int64)
-        bbox_xys = np.zeros((self.max_objs, 4), dtype=np.float32)
+        cls_tr_ids = np.zeros((self.num_classes, output_h, output_w), dtype=np.int64)
+        cls_id_map = np.full((1, output_h, output_w), -1, dtype=np.int64)
+        # bbox_xys = np.zeros((self.max_objs, 4), dtype=np.float32)
 
         draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else draw_umich_gaussian
         for k in range(num_objs):
@@ -474,7 +491,8 @@ class JointDataset(LoadImagesAndLabels):  # for training
             if h > 0 and w > 0:
                 radius = gaussian_radius((math.ceil(h), math.ceil(w)))
                 radius = max(0, int(radius))
-                radius = 6 if self.opt.mse_loss else radius
+                # radius = 6 if self.opt.mse_loss else radius
+                radius = self.opt.hm_gauss if self.opt.mse_loss else radius
                 #radius = max(1, int(radius)) if self.opt.mse_loss else radius
                 ct = np.array(
                     [bbox[0], bbox[1]], dtype=np.float32)
@@ -483,15 +501,22 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 if self.opt.ltrb:
                     wh[k] = ct[0] - bbox_amodal[0], ct[1] - bbox_amodal[1], \
                             bbox_amodal[2] - ct[0], bbox_amodal[3] - ct[1]
-                else:
+                else:# only else for mcmot
                     wh[k] = 1. * w, 1. * h
                 ind[k] = ct_int[1] * output_w + ct_int[0]
                 reg[k] = ct - ct_int
                 reg_mask[k] = 1
-                ids[k] = label[1]
-                bbox_xys[k] = bbox_xy
+                # ids[k] = label[1]
+                # output feature map
+                cls_id_map[0][ct_int[1], ct_int[0]] = cls_id
+                # track ids
+                cls_tr_ids[cls_id][ct_int[1]][ct_int[0]] = label[1] - 1
+                # track id -1
+                ids[k] = label[1] - 1
 
-        ret = {'input': imgs, 'hm': hm, 'reg_mask': reg_mask, 'ind': ind, 'wh': wh, 'reg': reg, 'ids': ids, 'bbox': bbox_xys}
+                # bbox_xys[k] = bbox_xy
+
+        ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
         return ret
 
 
@@ -567,5 +592,3 @@ class DetDataset(LoadImagesAndLabels):  # for training
                 labels[i, 1] += self.tid_start_index[ds]
 
         return imgs, labels0, img_path, (h, w)
-
-

@@ -133,7 +133,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
                 tid = t.track_id
                 # score = t.score
                 # vertical = tlwh[2] / tlwh[3] > 1.6
-                if tlwh[2] * tlwh[3] > opt.min_box_area # and not vertical:
+                if tlwh[2] * tlwh[3] > opt.min_box_area: # and not vertical:
                     online_tlwhs_dict[cls_id].append(tlwh)
                     online_ids_dict[cls_id].append(tid)
                     # online_scores_dict[cls_id].append(score)
@@ -154,6 +154,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
                                                          tlwhs_dict=online_tlwhs_dict,
                                                          obj_ids_dict=online_ids_dict,
                                                          num_classes=opt.num_classes,
+                                                         class_names=opt.class_names,
                                                          frame_id=frame_id,
                                                          fps=1.0 / timer.average_time)
         if show_image:

@@ -49,6 +49,11 @@ class opts(object):
                              help='model architecture. Currently tested'
                                   'resdcn_34 | resdcn_50 | resfpndcn_34 |'
                                   'dla_34 | hrnet_18')
+    # self.parser.add_argument('--arch',
+    #                              default='resdcn_18',
+    #                              help='model architecture. Currently tested'
+    #                                   'resdcn_18 |resdcn_34 | resdcn_50 | resfpndcn_34 |'
+    #                                   'dla_34 | hrnet_32 | hrnet_18 | cspdarknet_53')
     self.parser.add_argument('--head_conv', type=int, default=-1,
                              help='conv layer channels for output head'
                                   '0 for no conv layer'
@@ -147,7 +152,7 @@ class opts(object):
                              help='loss weight for id')
     self.parser.add_argument('--reid_dim', type=int, default=128,
                              help='feature dim for reid')
-    self.parser.add_argument('--ltrb', default=True,
+    self.parser.add_argument('--ltrb', default=False,#changed!!!! #FIXME
                              help='regress left, top, right, bottom of bbox')
     self.parser.add_argument('--multi_loss', default='uncertainty', help='multi_task loss: uncertainty | fix')
 
@@ -164,6 +169,9 @@ class opts(object):
     self.parser.add_argument('--reid_cls_ids',
                                  default='0,1,2,3,4',  # '0,1,2,3,4'
                                  help='')  # the object classes need to do reid
+    self.parser.add_argument('--reid_cls_names',
+                                default='monkey,patch,kong,branch,XBI',
+                                help='Define the names for the tracked classes.')
 
     self.parser.add_argument('-f')
 
@@ -172,7 +180,6 @@ class opts(object):
       opt = self.parser.parse_args()
     else:
       opt = self.parser.parse_args(args)
-
     opt.gpus_str = opt.gpus
     opt.gpus = [int(gpu) for gpu in opt.gpus.split(',')]
     opt.lr_step = [int(i) for i in opt.lr_step.split(',')]
@@ -205,6 +212,7 @@ class opts(object):
     opt.exp_dir = os.path.join(opt.root_dir, 'exp', opt.task)
     opt.save_dir = os.path.join(opt.exp_dir, opt.exp_id)
     opt.debug_dir = os.path.join(opt.save_dir, 'debug')
+    opt.tb_dir = os.path.join(opt.save_dir, 'tensor_board')
     print('The output will be saved to ', opt.save_dir)
     
     if opt.resume and opt.load_model == '':
@@ -216,14 +224,16 @@ class opts(object):
   def update_dataset_info_and_set_heads(self, opt, dataset):
     # TODO in MCMOT default_resolution is default_input_wh
     input_h, input_w = dataset.default_resolution
+    # input_w, input_h = dataset.default_input_wh
     opt.mean, opt.std = dataset.mean, dataset.std
     opt.num_classes = dataset.num_classes
+    opt.class_names = dataset.class_names
 
     # TODO added from MCMOT
     for reid_id in opt.reid_cls_ids.split(','):
-            if int(reid_id) > opt.num_classes - 1:
-                print('[Err]: configuration conflict of reid_cls_ids and num_classes!')
-                return
+      if int(reid_id) > opt.num_classes - 1:
+        print('[Err]: configuration conflict of reid_cls_ids and num_classes!')
+        return
 
     # input_h(w): opt.input_h overrides opt.input_res overrides dataset default
     input_h = opt.input_res if opt.input_res > 0 else input_h
@@ -239,13 +249,14 @@ class opts(object):
       opt.heads = {'hm': opt.num_classes,
                    # changed 
                    # 'wh': 2 if not opt.ltrb else 4,
+                  #  'wh': 4,
                    'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
                    'id': opt.reid_dim}
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
       # opt.nID = dataset.nID
       if opt.id_weight > 0:
-                opt.nID_dict = dataset.nID_dict
+        opt.nID_dict = dataset.nID_dict
       #opt.img_size = (608, 1088) #Hoch, also have to change it in datasets/jde.py (Load Video)
       # opt.img_size = (1088, 608) #Quer
       #opt.img_size = (864, 480)
@@ -256,14 +267,16 @@ class opts(object):
     return opt
 
   def init(self, args=''):
+    opt = self.parse(args)
     # default_dataset_info = {
     #   'mot': {'default_resolution': [608, 1088], 'num_classes': 1,
     #             'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
     #             'dataset': 'jde', 'nID': 14455},
     # }
     default_dataset_info = {
-            'mot': {'default_input_wh': [opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
+            'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
                     'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
+                    'class_names': opt.reid_cls_names.split(','),
                     'mean': [0.408, 0.447, 0.470],
                     'std': [0.289, 0.274, 0.278],
                     'dataset': 'jde',
@@ -276,7 +289,7 @@ class opts(object):
         for k, v in entries.items():
           self.__setattr__(k, v)
     # opt = self.parse(args)
-    h_w = default_dataset_info[opt.task]['default_input_wh']
+    h_w = default_dataset_info[opt.task]['default_resolution']
     opt.img_size = (h_w[1], h_w[0])
     print('Net input image size: {:d}×{:d}'.format(h_w[1], h_w[0]))
     dataset = Struct(default_dataset_info[opt.task])

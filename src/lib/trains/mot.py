@@ -110,7 +110,7 @@ class McMotLoss(torch.nn.Module):
 
         self.emb_dim = opt.reid_dim
 
-        self.nID = opt.nID
+        self.nID_dict = opt.nID_dict
 
         self.classifiers = nn.ModuleDict()
         for cls_id, nID in self.nID_dict.items():

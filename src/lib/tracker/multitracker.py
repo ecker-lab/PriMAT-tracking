@@ -240,7 +240,7 @@ class MCTrack(MCBaseTrack):
                 if st.state != TrackState.Tracked:
                     multi_mean[i][7] = 0
 
-            multi_mean, multi_covariance = Track.shared_kalman.multi_predict(multi_mean, multi_covariance)
+            multi_mean, multi_covariance = STrack.shared_kalman.multi_predict(multi_mean, multi_covariance)
 
             for i, (mean, cov) in enumerate(zip(multi_mean, multi_covariance)):
                 tracks[i].mean = mean
@@ -464,13 +464,12 @@ class JDETracker(object):
 
         ''' Step 1: Network forward, get detections & embeddings'''
         with torch.no_grad():
-            # FIXME why no .forward()?
             output = self.model(im_blob)[-1]
             hm = output['hm'].sigmoid_()
             #hm = hm * self.prediction_hm
             wh = output['wh']
-            # id_feature = output['id']
-            # id_feature = F.normalize(id_feature, dim=1)
+            id_feature = output['id']
+            id_feature = F.normalize(id_feature, dim=1)
 
             reg = output['reg'] if self.opt.reg_offset else None
             # detection decoding
@@ -479,7 +478,8 @@ class JDETracker(object):
                                                    reg=reg,
                                                    num_classes=self.opt.num_classes,
                                                    cat_spec_wh=self.opt.cat_spec_wh,
-                                                   K=self.opt.K)            id_feature = _tranpose_and_gather_feat(id_feature, inds)
+                                                   K=self.opt.K)
+            # id_feature = _tranpose_and_gather_feat(id_feature, inds)
             # ----- get ReID feature vector by object class
             cls_id_feats = []  # topK feature vectors of each object class
             for cls_id in range(self.opt.num_classes):  # cls_id starts from 0    
@@ -774,7 +774,8 @@ class MCJDETracker(object):
                                                    reg=reg,
                                                    num_classes=self.opt.num_classes,
                                                    cat_spec_wh=self.opt.cat_spec_wh,
-                                                   K=self.opt.K)            id_feature = _tranpose_and_gather_feat(id_feature, inds)
+                                                   K=self.opt.K)
+            # id_feature = _tranpose_and_gather_feat(id_feature, inds)
             
             # ----- get ReID feature vector by object class
             cls_id_feats = []  # topK feature vectors of each object class
@@ -846,7 +847,7 @@ class MCJDETracker(object):
                 track = track_pool_dict[cls_id][itracked]
                 det = cls_detects[idet]
                 if track.state == TrackState.Tracked:
-                    track.update(cls_detects[i_det], self.frame_id)
+                    track.update(cls_detects[idet], self.frame_id)
                     activated_tracks_dict[cls_id].append(track)
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
@@ -1559,7 +1560,7 @@ def sub_stracks(tlista, tlistb):
     return list(stracks.values())
 
 
-def remove_duplicate_stracks(stracksa, stracksb):
+def remove_duplicate_tracks(stracksa, stracksb):
     pdist = matching.iou_distance(stracksa, stracksb)
     pairs = np.where(pdist < 0.15)
     dupa, dupb = list(), list()
