@@ -7,7 +7,6 @@ import time
 from collections import OrderedDict
 
 import cv2
-import json
 import numpy as np
 import torch
 import copy
@@ -373,6 +372,7 @@ class JointDataset(LoadImagesAndLabels):  # for training
         self.tid_num = OrderedDict()
         self.tid_start_index = OrderedDict()
         self.num_classes = len(opt.reid_cls_ids.split(','))
+        self.class_names = opt.reid_cls_names.split(',')
 
         for ds, path in paths.items():
             with open(path, 'r') as file:

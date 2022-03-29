@@ -10,7 +10,7 @@ import torch
 USE_TENSORBOARD = True
 try:
   from torch.utils.tensorboard import SummaryWriter
-  print('Using tensorboardX')
+  print('Using tensorboard')
 except:
   USE_TENSORBOARD = False
 
@@ -65,7 +65,11 @@ class Logger(object):
   def close(self):
     self.log.close()
   
+  # tensorboard code
   def scalar_summary(self, tag, value, step):
     """Log a scalar variable."""
     if USE_TENSORBOARD:
       self.writer.add_scalar(tag, value, step)
+
+  def val_summary(self, tag, img, step):
+    pass

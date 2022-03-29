@@ -63,6 +63,7 @@ def main(opt):
         model, optimizer, start_epoch = load_model(
             model, opt.load_model, trainer.optimizer, opt.resume, opt.lr, opt.lr_step)
 
+    lr = opt.lr
     for epoch in range(start_epoch + 1, opt.num_epochs + 1):
         mark = epoch if opt.save_all else 'last'
         log_dict_train, _ = trainer.train(epoch, train_loader)
@@ -70,7 +71,7 @@ def main(opt):
         for k, v in log_dict_train.items():
             logger.scalar_summary('train_{}'.format(k), v, epoch)
             logger.write('{} {:8f} | '.format(k, v))
-
+        logger.scalar_summary('learn_rate', lr, epoch)
         if opt.val_intervals > 0 and epoch % opt.val_intervals == 0:
             save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(mark)),
                        epoch, model, optimizer)
