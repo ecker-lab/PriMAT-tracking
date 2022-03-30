@@ -803,7 +803,7 @@ class MCJDETracker(object):
 
             if len(cls_dets) > 0:
                 '''Detections'''
-                cls_detects = [MCTrack(MCTrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, self.opt.num_classes, cls_id, 30)
+                cls_detects = [MCTrack(MCTrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, self.opt.num_classes, cls_id, opt.track_buffer)
                     for (tlbrs, feat) in zip(cls_dets[:, :5], cls_id_feature)]
             else:
                 cls_detects = []
