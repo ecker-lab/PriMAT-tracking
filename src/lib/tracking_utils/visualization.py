@@ -179,13 +179,13 @@ def plot_tracks(image,
         cls_tlwhs = tlwhs_dict[cls_id]
         obj_ids = obj_ids_dict[cls_id]
 
-        cv2.putText(img, 'frame: %d fps: %.2f'
-                    % (frame_id, fps),
-                    (0, int(15 * text_scale)),
-                    cv2.FONT_HERSHEY_PLAIN,
-                    text_scale,
-                    (0, 0, 255),
-                    thickness=2)
+        # cv2.putText(img, 'frame: %d fps: %.2f'
+        #             % (frame_id, fps),
+        #             (0, int(15 * text_scale)),
+        #             cv2.FONT_HERSHEY_PLAIN,
+        #             text_scale,
+        #             (0, 0, 255),
+        #             thickness=2)
 
         for i, tlwh_i in enumerate(cls_tlwhs):
             x1, y1, w, h = tlwh_i
