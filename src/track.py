@@ -113,7 +113,7 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     for i, (path, img, img0) in enumerate(dataloader):
         #if i % 8 != 0:
             #continue
-        if frame_id % 20 == 0:
+        if frame_id % 200 == 0:
             logger.info('Processing frame {} ({:.2f} fps)'.format(frame_id, 1. / max(1e-5, timer.average_time)))
 
         # run tracking
