@@ -507,7 +507,7 @@ class JDETracker(object):
 
             if len(cls_dets) > 0:
                 '''Detections'''
-                cls_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+                cls_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
                             (tlbrs, f) in zip(cls_dets[:, :5], cls_id_feature)]
             else:
                 cls_detections = []
@@ -956,7 +956,7 @@ class MCJDETracker(object):
     
 class JDETrackerOld(JDETracker):
     def __init__(self, opt, frame_rate=30):
-        super().__init__(opt, frame_rate=30)
+        super().__init__(opt, frame_rate=frame_rate)
 
     def update(self, im_blob, img0):
         self.frame_id += 1
@@ -1010,7 +1010,7 @@ class JDETrackerOld(JDETracker):
 
         if len(dets) > 0:
             '''Detections'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
@@ -1116,7 +1116,7 @@ class JDETrackerOld(JDETracker):
 # Richard's version 
 class JDETrackerTwoThres(JDETracker):
     def __init__(self, opt, frame_rate=30):
-        super().__init__(opt, frame_rate=30)
+        super().__init__(opt, frame_rate=frame_rate)
 
     def update(self, im_blob, img0):
         self.frame_id += 1
@@ -1163,14 +1163,14 @@ class JDETrackerTwoThres(JDETracker):
 
         if len(dets_high) > 0:
             '''Detections'''
-            detections_h = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+            detections_h = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
                           (tlbrs, f) in zip(dets_high[:, :5], id_feature_high)]
         else:
             detections_h = []
             
         if len(dets_low) > 0:
             '''Detections'''
-            detections_l = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+            detections_l = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
                           (tlbrs, f) in zip(dets_low[:, :5], id_feature_low)]
         else:
             detections_l = []
@@ -1276,7 +1276,7 @@ class JDETrackerTwoThres(JDETracker):
 # Richard's version 
 class JDETracker_Kalman(JDETracker):
     def __init__(self, opt, frame_rate=30):
-        super().__init__(opt, frame_rate=30)
+        super().__init__(opt, frame_rate=frame_rate)
         self.prediction_hm = None
 
     def update(self, im_blob, img0):
@@ -1337,14 +1337,14 @@ class JDETracker_Kalman(JDETracker):
         
         if len(dets0) > 0:
             '''New Detections'''
-            new_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+            new_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
                           (tlbrs, f) in zip(dets0[:, :5], id_feature0)]
         else:
             new_detections = []
 
         if len(dets) > 0:
             '''Detections with some overlap to tracks'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, 30) for
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
