@@ -88,7 +88,7 @@ class LoadImages:  # for inference
 
 
 class LoadVideo:  # for inference
-    def __init__(self, path, img_size=(1088, 608)):
+    def __init__(self, path, img_size=(1088, 608)):# FIXME these values are approximate downsize shape of image to input into net
         self.cap = cv2.VideoCapture(path)
         self.frame_rate = int(round(self.cap.get(cv2.CAP_PROP_FPS)))
         self.vw = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -99,7 +99,9 @@ class LoadVideo:  # for inference
         self.height = img_size[1]
         self.count = 0
 
-        self.w, self.h = 1920, 1080 # before 1920, 1080
+        # FIXME should be real image size! of input
+        # self.w, self.h = 1920, 1080 # before 1920, 1080
+        self.w, self.h = 1024, 768
         #self.w, self.h = 608, 1088
         print('Length of the video: {:d} frames'.format(self.vn))
 
@@ -121,8 +123,8 @@ class LoadVideo:  # for inference
         #assert img0 is not None, 'Failed to load frame {:d}'.format(self.count)
         if img0 is None:
             raise StopIteration
-            
-        img0 = cv2.resize(img0, (self.w, self.h))
+        # FIXME resize doesnt make sense for me, just let the image in original size 
+        # img0 = cv2.resize(img0, (self.w, self.h))
 
         # Padded resize
         img, _, _, _ = letterbox(img0, height=self.height, width=self.width)
