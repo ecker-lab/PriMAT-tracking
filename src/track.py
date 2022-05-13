@@ -69,10 +69,10 @@ def write_results_score(filename, results, data_type):
                 f.write(line)
     logger.info('save results to {}'.format(filename))
 
-def write_results_dict(filename, results, data_type, num_classes=5):
+def write_results_dict(filename, results_dict, data_type, num_classes=5):
     if data_type == 'mot':
         # save_format = '{frame},{id},{x1},{y1},{w},{h},{s},1,-1,-1,-1\n'
-        save_format = '{frame},{id},{x1},{y1},{w},{h},1,{cls_id},1\n'
+        # save_format = '{frame},{id},{x1},{y1},{w},{h},1,{cls_id},1\n'
         save_format = '{frame},{id},{x1},{y1},{w},{h},{score},{cls_id},1\n'
     elif data_type == 'kitti':
         save_format = '{frame} {id} pedestrian 0 0 -10 {x1} {y1} {x2} {y2} -10 -10 -10 -1000 -1000 -1000 -10\n'
@@ -82,7 +82,7 @@ def write_results_dict(filename, results, data_type, num_classes=5):
     with open(filename, 'w') as f:
         for cls_id in range(num_classes):  # process each object class
             cls_results = results_dict[cls_id]
-            for frame_id, tlwhs, track_ids, scores in results:
+            for frame_id, tlwhs, track_ids, scores in cls_results:
                 if data_type == 'kitti':
                     frame_id -= 1
                 for tlwh, track_id, score in zip(tlwhs, track_ids, scores):
@@ -125,18 +125,18 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
         online_targets_dict = tracker.update(blob, img0)
         online_tlwhs_dict = defaultdict(list)
         online_ids_dict = defaultdict(list)
-        #online_scores = []
+        online_scores_dict = defaultdict(list)
         for cls_id in range(opt.num_classes):  # process each class id
             online_targets = online_targets_dict[cls_id]
             for t in online_targets:
                 tlwh = t.tlwh
                 tid = t.track_id
-                # score = t.score
+                score = t.score
                 # vertical = tlwh[2] / tlwh[3] > 1.6
                 if tlwh[2] * tlwh[3] > opt.min_box_area: # and not vertical:
                     online_tlwhs_dict[cls_id].append(tlwh)
                     online_ids_dict[cls_id].append(tid)
-                    # online_scores_dict[cls_id].append(score)
+                    online_scores_dict[cls_id].append(score)
         timer.toc()
         # save results
         # results.append((frame_id + 1, online_tlwhs, online_ids))
@@ -144,26 +144,26 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
         for cls_id in range(opt.num_classes):
             results_dict[cls_id].append((frame_id + 1,
                                             online_tlwhs_dict[cls_id],
-                                            online_ids_dict[cls_id]
-                                            ))# ,online_scores_dict[cls_id]))
+                                            online_ids_dict[cls_id],
+                                            online_scores_dict[cls_id]))
         #results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
-        if show_image or save_dir is not None:
-            # online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
-            #                               fps=1. / timer.average_time)
-            online_im: ndarray = vis.plot_tracks(image=img0,
-                                                         tlwhs_dict=online_tlwhs_dict,
-                                                         obj_ids_dict=online_ids_dict,
-                                                         num_classes=opt.num_classes,
-                                                         class_names=opt.class_names,
-                                                         frame_id=frame_id,
-                                                         fps=1.0 / timer.average_time)
-        if show_image:
-            cv2.imshow('online_im', online_im)
-        if save_dir is not None:
-            cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
+        # if show_image or save_dir is not None:
+        #     # online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
+        #     #                               fps=1. / timer.average_time)
+        #     online_im: ndarray = vis.plot_tracks(image=img0,
+        #                                                  tlwhs_dict=online_tlwhs_dict,
+        #                                                  obj_ids_dict=online_ids_dict,
+        #                                                  num_classes=opt.num_classes,
+        #                                                  class_names=opt.class_names,
+        #                                                  frame_id=frame_id,
+        #                                                  fps=1.0 / timer.average_time)
+        # if show_image:
+        #     cv2.imshow('online_im', online_im)
+        # if save_dir is not None:
+        #     cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
         frame_id += 1
         # save results
-    write_results(result_filename, results_dict, data_type)
+    write_results_dict(result_filename, results_dict, data_type, opt.num_classes)
     #write_results_score(result_filename, results, data_type)
     return frame_id, timer.average_time, timer.calls
 

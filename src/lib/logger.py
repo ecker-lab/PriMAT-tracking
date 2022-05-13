@@ -74,7 +74,3 @@ class Logger(object):
   def val_summary(self, tag, img, step):
     pass
 
-  def save_opts(self, opt):
-    with open(os.path.join(opt.exp_dir,'opts.ini'), 'w') as f:
-        for k,v in sorted(opt.__dict__.items()):
-            f.write(str(k)+' = '+str(v)+'\n')

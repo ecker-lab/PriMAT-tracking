@@ -36,8 +36,6 @@ def main(opt):
 
     logger = Logger(opt)
 
-    logger.save_opts(opt)
-
     os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
     opt.device = torch.device('cuda' if opt.gpus[0] >= 0 else 'cpu')
 

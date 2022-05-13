@@ -387,7 +387,7 @@ class JDETracker(object):
         self.frame_id = 0
         # self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
         # self.max_time_lost = self.buffer_size
-        self.max_frames_between_det = int(frame_rate / 10.0 * opt.track_buffer)
+        self.max_frames_between_det = int(frame_rate / 10.0 * self.opt.track_buffer)
         self.max_per_image = opt.K
         self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
@@ -508,7 +508,7 @@ class JDETracker(object):
 
             if len(cls_dets) > 0:
                 '''Detections'''
-                cls_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
+                cls_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, self.opt.track_buffer) for
                             (tlbrs, f) in zip(cls_dets[:, :5], cls_id_feature)]
             else:
                 cls_detections = []
@@ -682,7 +682,7 @@ class MCJDETracker(object):
         self.frame_id = 0
         # self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
         # self.max_time_lost = self.buffer_size
-        self.max_frames_between_det = int(frame_rate / 10.0 * opt.track_buffer)
+        self.max_frames_between_det = int(frame_rate / 10.0 * self.opt.track_buffer)
         self.max_per_image = opt.K
         self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
@@ -805,7 +805,7 @@ class MCJDETracker(object):
 
             if len(cls_dets) > 0:
                 '''Detections'''
-                cls_detects = [MCTrack(MCTrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, self.opt.num_classes, cls_id, opt.track_buffer)
+                cls_detects = [MCTrack(MCTrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, self.opt.num_classes, cls_id, self.opt.track_buffer)
                     for (tlbrs, feat) in zip(cls_dets[:, :5], cls_id_feature)]
             else:
                 cls_detects = []
@@ -857,7 +857,7 @@ class MCJDETracker(object):
 
             """ Step 3: What happens to non-matches"""
             ###this happens in MCMOT (not in richards original code...)
-            ls_detects = [cls_detects[i] for i in u_detection]
+            cls_detects = [cls_detects[i] for i in u_detection]
             r_tracked_tracks = [track_pool_dict[cls_id][i]
                                  for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
             dists = matching.iou_distance(r_tracked_tracks, cls_detects)
@@ -1012,7 +1012,7 @@ class JDETrackerOld(JDETracker):
 
         if len(dets) > 0:
             '''Detections'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, self.opt.track_buffer) for
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
@@ -1114,7 +1114,8 @@ class JDETrackerOld(JDETracker):
         logger.debug('Removed: {}'.format([track.track_id for track in removed_stracks]))
 
         return output_stracks
-    
+
+
 # Richard's version 
 class JDETrackerTwoThres(JDETracker):
     def __init__(self, opt, frame_rate=30):
@@ -1165,14 +1166,14 @@ class JDETrackerTwoThres(JDETracker):
 
         if len(dets_high) > 0:
             '''Detections'''
-            detections_h = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
+            detections_h = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, self.opt.track_buffer) for
                           (tlbrs, f) in zip(dets_high[:, :5], id_feature_high)]
         else:
             detections_h = []
             
         if len(dets_low) > 0:
             '''Detections'''
-            detections_l = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
+            detections_l = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, self.opt.track_buffer) for
                           (tlbrs, f) in zip(dets_low[:, :5], id_feature_low)]
         else:
             detections_l = []
@@ -1339,14 +1340,14 @@ class JDETracker_Kalman(JDETracker):
         
         if len(dets0) > 0:
             '''New Detections'''
-            new_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
+            new_detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, self.opt.track_buffer) for
                           (tlbrs, f) in zip(dets0[:, :5], id_feature0)]
         else:
             new_detections = []
 
         if len(dets) > 0:
             '''Detections with some overlap to tracks'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, opt.track_buffer) for
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], f, self.opt.track_buffer) for
                           (tlbrs, f) in zip(dets[:, :5], id_feature)]
         else:
             detections = []
