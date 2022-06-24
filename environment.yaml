@@ -16,6 +16,7 @@ dependencies:
   - torchvision==0.8.0
   - cudatoolkit=10.2
   - tensorboard
+  - ipykernel
   - pip:
     - cython
     - yacs

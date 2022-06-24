@@ -151,16 +151,22 @@ class LoadImagesAndLabels:  # for training
         self.label_files = [x.replace('images', 'labels_with_ids').replace('.png', '.txt').replace('.jpg', '.txt')
                             for x in self.img_files]
 
+        # added read in of pose labels
+        with open(path.replace('.','_pose.'), 'r') as file:
+            self.pose_labels = [x.rstrip() for x in file.readlines()]
+            self.pose_labels = list(filter(lambda x: len(x) > 0, self.pose_labels))
+
         self.nF = len(self.img_files)  # number of image files
         self.width = img_size[0]
         self.height = img_size[1]
         self.augment = augment
         self.transforms = transforms
 
+    # added return of pose_label
     def __getitem__(self, files_index):
         img_path = self.img_files[files_index]
         label_path = self.label_files[files_index]
-        return self.get_data(img_path, label_path)
+        return self.get_data(img_path, label_path), self.pose_labels[files_index]
 
     def get_data(self, img_path, label_path):
         height = self.height
@@ -373,8 +379,14 @@ class JointDataset(LoadImagesAndLabels):  # for training
         self.label_files = OrderedDict()
         self.tid_num = OrderedDict()
         self.tid_start_index = OrderedDict()
+
+        # added for pose
+        self.pose_labels = OrderedDict()
+
         self.num_classes = len(opt.reid_cls_ids.split(','))
         self.class_names = opt.reid_cls_names.split(',')
+        self.num_poses = len(opt.mpc_class_ids.split(','))
+        self.pose_names = opt.mpc_class_names.split(',')
 
         for ds, path in paths.items():
             with open(path, 'r') as file:
@@ -385,6 +397,13 @@ class JointDataset(LoadImagesAndLabels):  # for training
             self.label_files[ds] = [
                 x.replace('images', 'labels_with_ids').replace('.png', '.txt').replace('.jpg', '.txt').replace('.JPG', '.txt')
                 for x in self.img_files[ds]]
+
+
+            # added read in of pose labels
+            with open(path.replace('lab.','lab_pose.'), 'r') as file:
+                self.pose_labels[ds] = [x.rstrip() for x in file.readlines()]
+                self.pose_labels[ds] = list(filter(lambda x: len(x) > 0, self.pose_labels[ds]))
+
 
         for ds, label_paths in self.label_files.items():
             # max_index = -1
@@ -442,6 +461,10 @@ class JointDataset(LoadImagesAndLabels):  # for training
 
         img_path = self.img_files[ds][files_index - start_index]
         label_path = self.label_files[ds][files_index - start_index]
+
+        # added for pose
+        pose = self.pose_labels[ds][files_index - start_index]
+        pose = torch.tensor(int(pose))
 
         imgs, labels, img_path, (input_h, input_w) = self.get_data(img_path, label_path)
         for i, _ in enumerate(labels):
@@ -517,8 +540,9 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 ids[k] = label[1] - 1
 
                 # bbox_xys[k] = bbox_xy
+            # pose = self.pose_labels[k][files_index]
 
-        ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
+        ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask,'pose': pose, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
         return ret
 
 
