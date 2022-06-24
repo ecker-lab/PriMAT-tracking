@@ -254,6 +254,7 @@ class opts(object):
     opt.class_names = dataset.class_names
     # opt.clsID4Pose = filter(lambda x: opt.class_names[x] == 'monkey', range(len(opt.class_names)))
     opt.pose_names = dataset.pose_names
+    opt.num_poses = dataset.num_poses
 
     # TODO added from MCMOT
     for reid_id in opt.reid_cls_ids.split(','):

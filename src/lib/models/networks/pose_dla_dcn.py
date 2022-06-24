@@ -562,7 +562,11 @@ class DLASeg(nn.Module):
         #print(f'cls_inds_mask {cls_inds_mask.shape}') # [5, 1, 50]
         #print(f'inds {inds.shape}') #[1, 50]
         # print(cls_inds_mask[self.clsID4Pose].shape)#[50]
-        cls_inds = inds[:, cls_inds_mask[self.clsID4Pose]]
+        print('----')
+        print('batch size: ',hm.size(0))
+        print(inds.shape)
+        print(cls_inds_mask[self.clsID4Pose].shape)
+        cls_inds = inds[:,cls_inds_mask[self.clsID4Pose]]
         if cls_inds.numel() == 0:
             # z['pose'] =  torch.tensor([[0.]], dtype=torch.int64)
             z['pose'] = torch.tensor([[0.,0.,0.,0.,1.]])
@@ -731,7 +735,7 @@ def map2origCLEANUP(dets, num_classes):
 #         return [z]
 
 
-def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_classes=5, cat_spec_wh=True, clsID4Pose=0, conf_thres=0.02):
+def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_classes=5, num_poses=5, cat_spec_wh=True, clsID4Pose=0, conf_thres=0.02):
   model = DLASeg('dla{}'.format(num_layers), heads,
                  pretrained=True,
                  down_ratio=down_ratio,
@@ -739,6 +743,7 @@ def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_classes=5, 
                  last_level=5,
                  head_conv=head_conv,
                  num_classes=num_classes,
+                 num_poses=num_poses,
                  cat_spec_wh=cat_spec_wh,
                  clsID4Pose=clsID4Pose,
                  conf_thres=conf_thres)
