@@ -61,6 +61,12 @@ class opts(object):
                                   '256 for resnets and 256 for dla.')
     self.parser.add_argument('--down_ratio', type=int, default=4,
                              help='output stride. Currently only supports 4.')
+    # mpc part of model
+    self.parser.add_argument('--head_mpc', type=int, default=-1,
+                             help='channels for mpc head'
+                                  '0 for no mpc layer'
+                                  '-1 for default setting: '
+                                  '256 for resnets and 256 for dla.')
 
     # input
     self.parser.add_argument('--input_res', type=int, default=-1, 
@@ -133,6 +139,25 @@ class opts(object):
                              help='load data from cfg')
     self.parser.add_argument('--data_dir', type=str, default='/user/vogg/local_datasets/')
 
+    # mc
+    self.parser.add_argument('--reid_cls_ids',
+                                 default='0,1,2,3,4',  # '0,1,2,3,4'
+                                 help="ID's of object classes.")  # the object classes need to do reid
+    self.parser.add_argument('--reid_cls_names',
+                                default='monkey,patch,kong,branch,XBI',
+                                help='Define the names for the tracked classes.')
+
+    # mpc
+    self.parser.add_argument('--mpc_class_ids',
+                                default='0,1,2,3,4',
+                                help="ID's of monkey poses.")
+    self.parser.add_argument('--mpc_class_names',
+                                default='walking,sitting,standing2legs,standing4legs,NiS',
+                                help='Define the names for the possible monkey poses.')
+    self.parser.add_argument('--clsID4Pose',
+                                 default=0,
+                                 help="Object class ID for which the pose shall be estimated.")
+
     # loss
     self.parser.add_argument('--mse_loss', action='store_true',
                              help='use mse loss or focal loss to train '
@@ -155,6 +180,9 @@ class opts(object):
     self.parser.add_argument('--ltrb', default=False,#changed!!!! #FIXME
                              help='regress left, top, right, bottom of bbox')
     self.parser.add_argument('--multi_loss', default='uncertainty', help='multi_task loss: uncertainty | fix')
+    self.parser.add_argument('--pose_loss', default='CrEn',
+                             help='pose loss: CrEn | none')
+
 
     self.parser.add_argument('--norm_wh', action='store_true',
                              help='L1(\hat(y) / y, 1) or L1(\hat(y), y)')
@@ -165,14 +193,8 @@ class opts(object):
                              help='category specific bounding box size.')
     self.parser.add_argument('--not_reg_offset', action='store_true',
                              help='not regress local offset.')
-    # FIXME added! needed for multi class
-    self.parser.add_argument('--reid_cls_ids',
-                                 default='0,1,2,3,4',  # '0,1,2,3,4'
-                                 help='')  # the object classes need to do reid
-    self.parser.add_argument('--reid_cls_names',
-                                default='monkey,patch,kong,branch,XBI',
-                                help='Define the names for the tracked classes.')
-
+    
+    
     self.parser.add_argument('-f')
 
   def parse(self, args=''):
@@ -190,6 +212,8 @@ class opts(object):
 
     if opt.head_conv == -1: # init default head_conv
       opt.head_conv = 256 if 'dla' in opt.arch else 256
+    if opt.head_mpc == -1:
+      opt.head_mpc = 128#len(opt.mpc_class_ids.split(',')) if 'dla' in opt.arch else 5
     opt.pad = 31
     opt.num_stacks = 1
 
@@ -228,6 +252,8 @@ class opts(object):
     opt.mean, opt.std = dataset.mean, dataset.std
     opt.num_classes = dataset.num_classes
     opt.class_names = dataset.class_names
+    # opt.clsID4Pose = filter(lambda x: opt.class_names[x] == 'monkey', range(len(opt.class_names)))
+    opt.pose_names = dataset.pose_names
 
     # TODO added from MCMOT
     for reid_id in opt.reid_cls_ids.split(','):
@@ -251,7 +277,8 @@ class opts(object):
                    # 'wh': 2 if not opt.ltrb else 4,
                   #  'wh': 4,
                    'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
-                   'id': opt.reid_dim}
+                   'id': opt.reid_dim,
+                   'mpc': opt.head_mpc}
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
       # opt.nID = dataset.nID
@@ -277,6 +304,8 @@ class opts(object):
             'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
                     'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
                     'class_names': opt.reid_cls_names.split(','),
+                    'num_poses': len(opt.mpc_class_ids.split(',')),
+                    'pose_names': opt.mpc_class_names.split(','),
                     'mean': [0.408, 0.447, 0.470],
                     'std': [0.289, 0.274, 0.278],
                     'dataset': 'jde',

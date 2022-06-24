@@ -70,6 +70,7 @@ class BaseTrainer(object):
 
       output, loss, loss_stats = model_with_loss(batch)
       loss = loss.mean()
+      # TODO freeze all weitghts except pose
       if phase == 'train':
         self.optimizer.zero_grad()
         loss.backward()
