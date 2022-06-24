@@ -24,11 +24,12 @@ def demo(opt):
     logger.info('Starting tracking...')
     dataloader = datasets.LoadVideo(opt.input_video, opt.img_size)
     result_filename = os.path.join(result_root, 'results.txt')
+    pose_filename = os.path.join(result_root, 'poses.txt')
     frame_rate = dataloader.frame_rate
 
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
     # TODO what does show_image do?
-    eval_seq(opt, dataloader, 'mot', result_filename,
+    eval_seq(opt, dataloader, 'mot', result_filename, pose_filename,
              save_dir=frame_dir, show_image=False, frame_rate=frame_rate,
              use_cuda=opt.gpus!=[-1])
 

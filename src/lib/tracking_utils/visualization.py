@@ -28,9 +28,11 @@ def resize_image(image, max_size=800):
     return image
 
 
-def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0., ids2=None, cls_id=0):
+def plot_tracking(opt, image, tlwhs, pose, pose_scores, obj_ids, scores=None, frame_id=0, fps=0., ids2=None, cls_id=0):
     im = np.ascontiguousarray(np.copy(image))
     im_h, im_w = im.shape[:2]
+
+    
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
 
@@ -46,7 +48,11 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0., ids2=N
         x1, y1, w, h = tlwh
         intbox = tuple(map(int, (x1, y1, x1 + w, y1 + h)))
         obj_id = int(obj_ids[i])
-        id_text = '{}'.format(int(obj_id))
+        # if obj_id is monkey
+        if obj_id == 0:
+            id_text = '{:s}'.format(opt.class_names[pose])
+        else:
+            id_text = '{}'.format(int(obj_id))
         if ids2 is not None:
             id_text = id_text + ', {}'.format(int(ids2[i]))
         _line_thickness = 1 if obj_id <= 0 else line_thickness
@@ -55,13 +61,27 @@ def plot_tracking(image, tlwhs, obj_ids, scores=None, frame_id=0, fps=0., ids2=N
         cv2.putText(im, id_text, (intbox[0], intbox[1] + 30), cv2.FONT_HERSHEY_PLAIN, text_scale, (0, 0, 255),
                     thickness=text_thickness)
 
-        cv2.putText(im,
-                    opt.class_names[cls_id],
-                    (int(x1), int(y1)),
-                    cv2.FONT_HERSHEY_PLAIN,
-                    text_scale,
-                    (0, 255, 255),  # cls_id: yellow
-                    thickness=text_thickness)
+        # if obj_id is monkey
+        if obj_id == 0:
+            cv2.putText(im,
+                opt.pose_names[pose],
+                (int(x1), int(y1)),
+                cv2.FONT_HERSHEY_PLAIN,
+                text_scale,
+                (0, 255, 255),  # cls_id: yellow
+                thickness=text_thickness)
+        else:
+            cv2.putText(im,
+                        opt.class_names[cls_id],
+                        (int(x1), int(y1)),
+                        cv2.FONT_HERSHEY_PLAIN,
+                        text_scale,
+                        (0, 255, 255),  # cls_id: yellow
+                        thickness=text_thickness)
+
+    
+    
+
     return im
 
 
@@ -159,12 +179,25 @@ def plot_tracks(image,
                 obj_ids_dict,
                 num_classes,
                 class_names,
+                pose,
+                pose_names,
+                pose_scores,
                 scores=None,
                 frame_id=0,
                 fps=0.0):
 
     img = np.ascontiguousarray(np.copy(image))
     im_h, im_w = img.shape[:2]
+
+    # added for pose
+    if pose:
+    # for pose, pose_score in zip(poses, pose_scores):
+        print(f'pose: {pose}, score: {pose_scores}')
+        # pose = pose.squeeze().numpy()
+        # pose_scores = pose_scores.squeeze().numpy()
+        order = np.argsort(pose_scores)[::-1]
+        pose_scores = pose_scores[order]
+    # ---------------
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
 
@@ -205,13 +238,23 @@ def plot_tracks(image,
                           thickness=line_thickness)
 
             # draw class name and index
-            cv2.putText(img,
-                        class_names[cls_id],
-                        (int(x1), int(y1)),
-                        cv2.FONT_HERSHEY_PLAIN,
-                        text_scale,
-                        (0, 255, 255),  # cls_id: yellow
-                        thickness=text_thickness)
+            # if obj_id is monkey
+            if cls_id == 0:
+                cv2.putText(img,
+                    class_names[cls_id]+' : '+pose_names[pose],
+                    (int(x1), int(y1)),
+                    cv2.FONT_HERSHEY_PLAIN,
+                    text_scale,
+                    (0, 255, 255),  # cls_id: yellow
+                    thickness=text_thickness)
+            else:
+                cv2.putText(img,
+                            class_names[cls_id],
+                            (int(x1), int(y1)),
+                            cv2.FONT_HERSHEY_PLAIN,
+                            text_scale,
+                            (0, 255, 255),  # cls_id: yellow
+                            thickness=text_thickness)
 
             txt_w, txt_h = cv2.getTextSize(class_names[cls_id],
                                            fontFace=cv2.FONT_HERSHEY_PLAIN,
@@ -224,5 +267,30 @@ def plot_tracks(image,
                         text_scale,
                         (0, 255, 255),  # cls_id: yellow
                         thickness=text_thickness)
+
+    # added for pose
+    # print monkey scores in top left corner
+    if pose:
+        text = "Pose\n{}\n{}\n{}\n{}\n{}".format(pose_names[order[0]], pose_names[order[1]], pose_names[order[2]], pose_names[order[3]], pose_names[order[4]])
+        text2 = "Score\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}".format(pose_scores[0], pose_scores[1], pose_scores[2], pose_scores[3], pose_scores[4])
+        # y0, dy = (im_w - int(15 * text_scale), 20)
+        uv_top_left = np.array([im_w-250, 20], dtype=float)
+        assert uv_top_left.shape == (2,)
+    
+        for i, (line, line2) in enumerate(zip(text.split('\n'), text2.split('\n'))):
+            (w, h), _ = cv2.getTextSize(
+                text=line,
+                fontFace=cv2.FONT_HERSHEY_PLAIN,
+                fontScale=text_scale,
+                thickness=text_thickness,
+            )
+            uv_bottom_left_i = uv_top_left + [0, h]
+            org = tuple(uv_bottom_left_i.astype(int))
+            org2 = tuple((uv_bottom_left_i+[150,0]).astype(int))
+            cv2.putText(img, line, org, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
+            cv2.putText(img, line2, org2, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
+            line_spacing=1.5
+            uv_top_left += [0, h * line_spacing]
+    # ---------------
 
     return img
