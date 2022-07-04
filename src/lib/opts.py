@@ -157,6 +157,8 @@ class opts(object):
     self.parser.add_argument('--clsID4Pose',
                                  default=0,
                                  help="Object class ID for which the pose shall be estimated.")
+    self.parser.add_argument('--train_only_pose', action='store_true',
+                              help='Freeze all weights except pose head + classification.')
 
     # loss
     self.parser.add_argument('--mse_loss', action='store_true',

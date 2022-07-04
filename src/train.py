@@ -47,7 +47,20 @@ def main(opt):
 
     print('Creating model...')
     model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=opt.num_poses, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=opt.clsID4Pose, conf_thres=opt.conf_thres)
-    optimizer = torch.optim.Adam(model.parameters(), opt.lr)
+    if opt.train_only_pose:
+        for name, param in model.named_parameters():
+            if 'mpc' in name or 'pose_classifier' in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+        # for param in model.parameters():
+        #     param.requires_grad = False        
+        # for param in model.mpc.parameters():
+        #     param.requires_grad = True
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), opt.lr)
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), opt.lr)
+
     start_epoch = 0
 
     # Get dataloader
