@@ -1,7 +1,7 @@
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
-export CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=2
 
 cd src
-python demo.py mot --load_model ../exp/mot/lab_all/model_30.pth --conf_thres 0.2 --det_thres 0.7 --input_video /media/hdd2/matthias/monkey_vids/hum/trim.mp4 --output_root /media/hdd2/matthias/monkey_vids/hum/out_all_new
+python demo.py mot --load_model ../exp/mot/lab_all_pose_2ndTry/model_30.pth --conf_thres 0.2 --det_thres 0.7 --input_video /home/matthias/monkey/trim15.mp4 --output_root /home/matthias/monkey/trial_inference-softmax
 cd ..
 
