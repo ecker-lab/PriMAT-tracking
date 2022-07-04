@@ -2,12 +2,11 @@
 	"root": "/home/matthias/monkey/fairmot-monkey-tracking/src/",
 	"train":
 	{
-		"crowdhuman_train": "./data/lab.train",
-		"crowdhuman_test": "./data/lab.val"
+		"monkeylab_train": "./data/lab.train"
 	},
-	"test_emb":
+	"val":
 	{
-		"mot15": "./data/mot15.val"
+		"monkeylab_val": "./data/lab.val"
 	},
 	"test":
 	{
