@@ -26,11 +26,17 @@ def main(opt):
     f = open(opt.data_cfg)
     data_config = json.load(f)
     trainset_paths = data_config['train']
+    # added for val
+    valset_paths = data_config['val']
     dataset_root = data_config['root']
     f.close()
     transforms = T.Compose([T.ToTensor()])
     # TODO why fixed input image size? opt.input_wh in mcmot code
     dataset = JointDataset(opt, dataset_root, trainset_paths, (1088, 608), augment=True, transforms=transforms)
+    # added for val
+    if opt.trainval:
+        valset = JointDataset(opt, dataset_root, valset_paths, (1088, 608), augment=False, transforms=transforms)
+
     opt = opts().update_dataset_info_and_set_heads(opt, dataset)
     print(opt)
 
@@ -54,6 +60,16 @@ def main(opt):
         pin_memory=True,
         drop_last=True
     )
+
+    if opt.trainval:
+        val_loader = torch.utils.data.DataLoader(
+            valset,
+            batch_size=opt.batch_size,
+            shuffle=True,
+            num_workers=opt.num_workers,
+            pin_memory=True,
+            drop_last=True
+        )
 
     print('Starting training...')
     trainer = MotTrainer(opt, model, optimizer)
@@ -89,6 +105,15 @@ def main(opt):
         if epoch % 10 == 0:
             save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)),
                        epoch, model, optimizer)
+        if opt.trainval:
+            if opt.val_intervals > 0 and opt.val_intervals % epoch == 0:
+                log_dict_val, _, cmat = trainer.val(epoch, val_loader)
+                for k, v in log_dict_val.items():
+                    logger.scalar_summary('val_{}'.format(k), v, epoch)
+                    
+                    logger.write('{} {:8f} | '.format(k, v))
+                logger.write('\n')
+                logger.val_summary('val_cmat', cmat, epoch)
     logger.close()
 
 

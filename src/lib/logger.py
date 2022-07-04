@@ -71,6 +71,21 @@ class Logger(object):
     if USE_TENSORBOARD:
       self.writer.add_scalar(tag, value, step)
 
-  def val_summary(self, tag, img, step):
-    pass
+  def val_summary(self, tag, cmat, step):
+    if USE_TENSORBOARD:
+      import numpy as np
+      class_names = ['walking', 'sitting', 'standing2legs', 'standing4legs', 'NiS']
+      import matplotlib.pyplot as plt
+      fig = plt.figure(figsize=(10, 10), dpi=300)
+      plt.imshow(cmat, cmap='plasma')
+      plt.colorbar()
+      plt.title('Confusion Matrix of Classification', fontsize=20)
+      plt.xlabel('Prediction', labelpad=10, fontsize=20)
+      plt.ylabel('Ground-Truth', labelpad=10, fontsize=20)
+      plt.xticks(np.arange(len(class_names)), class_names)
+      plt.xticks(rotation=25)
+      plt.yticks(np.arange(len(class_names)), class_names)
+      plt.tight_layout()
+      
+      self.writer.add_figure(tag, fig, step)
 

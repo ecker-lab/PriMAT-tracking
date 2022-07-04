@@ -217,8 +217,8 @@ class opts(object):
     opt.pad = 31
     opt.num_stacks = 1
 
-    if opt.trainval:
-      opt.val_intervals = 100000000
+    # if opt.trainval:
+    #   opt.val_intervals = 100000000
 
     if opt.master_batch_size == -1:
       opt.master_batch_size = opt.batch_size // len(opt.gpus)
