@@ -190,13 +190,12 @@ def plot_tracks(image,
     im_h, im_w = img.shape[:2]
 
     # added for pose
-    if pose:
     # for pose, pose_score in zip(poses, pose_scores):
-        print(f'pose: {pose}, score: {pose_scores}')
+        # print(f'pose: {pose}, score: {pose_scores}')
         # pose = pose.squeeze().numpy()
         # pose_scores = pose_scores.squeeze().numpy()
-        order = np.argsort(pose_scores)[::-1]
-        pose_scores = pose_scores[order]
+    order = np.argsort(pose_scores)[::-1]
+    pose_scores = pose_scores[order]
     # ---------------
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
@@ -269,28 +268,27 @@ def plot_tracks(image,
                         thickness=text_thickness)
 
     # added for pose
-    # print monkey scores in top left corner
-    if pose:
-        text = "Pose\n{}\n{}\n{}\n{}\n{}".format(pose_names[order[0]], pose_names[order[1]], pose_names[order[2]], pose_names[order[3]], pose_names[order[4]])
-        text2 = "Score\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}".format(pose_scores[0], pose_scores[1], pose_scores[2], pose_scores[3], pose_scores[4])
-        # y0, dy = (im_w - int(15 * text_scale), 20)
-        uv_top_left = np.array([im_w-250, 20], dtype=float)
-        assert uv_top_left.shape == (2,)
-    
-        for i, (line, line2) in enumerate(zip(text.split('\n'), text2.split('\n'))):
-            (w, h), _ = cv2.getTextSize(
-                text=line,
-                fontFace=cv2.FONT_HERSHEY_PLAIN,
-                fontScale=text_scale,
-                thickness=text_thickness,
-            )
-            uv_bottom_left_i = uv_top_left + [0, h]
-            org = tuple(uv_bottom_left_i.astype(int))
-            org2 = tuple((uv_bottom_left_i+[150,0]).astype(int))
-            cv2.putText(img, line, org, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
-            cv2.putText(img, line2, org2, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
-            line_spacing=1.5
-            uv_top_left += [0, h * line_spacing]
+    # print monkey scores in top right corner
+    text = "Pose\n{}\n{}\n{}\n{}\n{}".format(pose_names[order[0]], pose_names[order[1]], pose_names[order[2]], pose_names[order[3]], pose_names[order[4]])
+    text2 = "Score\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}".format(pose_scores[0], pose_scores[1], pose_scores[2], pose_scores[3], pose_scores[4])
+    # y0, dy = (im_w - int(15 * text_scale), 20)
+    uv_top_left = np.array([im_w-250, 20], dtype=float)
+    assert uv_top_left.shape == (2,)
+
+    for i, (line, line2) in enumerate(zip(text.split('\n'), text2.split('\n'))):
+        (w, h), _ = cv2.getTextSize(
+            text=line,
+            fontFace=cv2.FONT_HERSHEY_PLAIN,
+            fontScale=text_scale,
+            thickness=text_thickness,
+        )
+        uv_bottom_left_i = uv_top_left + [0, h]
+        org = tuple(uv_bottom_left_i.astype(int))
+        org2 = tuple((uv_bottom_left_i+[150,0]).astype(int))
+        cv2.putText(img, line, org, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
+        cv2.putText(img, line2, org2, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
+        line_spacing=1.5
+        uv_top_left += [0, h * line_spacing]
     # ---------------
 
     return img
