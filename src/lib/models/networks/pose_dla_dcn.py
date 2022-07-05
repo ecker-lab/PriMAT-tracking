@@ -516,8 +516,10 @@ class DLASeg(nn.Module):
         self.pose_classifier = nn.Sequential(
                 # nn.Linear(self.emb_dim, self.nCls, bias=True))
                 nn.Linear(self.emb_dim, self.num_poses, bias=True))
-        if not self.training:
-                self.pose_classifier.append(nn.Sigmoid())
+        # if not self.training:
+        #         # self.pose_classifier.append(nn.Sigmoid())
+        #         self.pose_classifier.append(nn.Softmax())
+        self.sm = nn.Softmax()
         # -----------------------------------------
 
 
@@ -562,10 +564,10 @@ class DLASeg(nn.Module):
         #print(f'cls_inds_mask {cls_inds_mask.shape}') # [5, 1, 50]
         #print(f'inds {inds.shape}') #[1, 50]
         # print(cls_inds_mask[self.clsID4Pose].shape)#[50]
-        print('----')
-        print('batch size: ',hm.size(0))
-        print(inds.shape)
-        print(cls_inds_mask[self.clsID4Pose].shape)
+        # print('----')
+        # print('batch size: ',hm.size(0))
+        # print(inds.shape)
+        # print(cls_inds_mask[self.clsID4Pose].shape)
         cls_inds = inds[:,cls_inds_mask[self.clsID4Pose]]
         if cls_inds.numel() == 0:
             # z['pose'] =  torch.tensor([[0.]], dtype=torch.int64)
@@ -609,11 +611,15 @@ class DLASeg(nn.Module):
 
         # ----------------------------------------
 
-        
-        z['pose'] = self.pose_classifier(cls_id_feature).contiguous()
+        # if no monkey detected return NiS
+        if cls_id_feature.size(0) is 0:
+            z['pose'] = torch.tensor([[0.,0.,0.,0.,1.]])
+        else:
+            z['pose'] = self.pose_classifier(cls_id_feature).contiguous()
         #print("z['class'] shape: ", z['class'].shape)
         #print(z['class'])
-
+        if not self.training:
+                z['pose'] = self.sm(z['pose'])
         # -----------------------------------------    
 
         return [z]

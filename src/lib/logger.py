@@ -89,3 +89,6 @@ class Logger(object):
       
       self.writer.add_figure(tag, fig, step)
 
+  def graph_summary(self, model):
+    if USE_TENSORBOARD:
+      self.writer.add_graph(model)

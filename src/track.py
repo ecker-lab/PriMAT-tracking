@@ -73,7 +73,7 @@ def write_results_dict(filename, results_dict, data_type, num_classes=5):
     if data_type == 'mot':
         # save_format = '{frame},{id},{x1},{y1},{w},{h},{s},1,-1,-1,-1\n'
         # save_format = '{frame},{id},{x1},{y1},{w},{h},1,{cls_id},1\n'
-        save_format = '{frame},{id},{x1},{y1},{w},{h},{score},{cls_id},1\n'
+        save_format = '{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id},1\n'
     elif data_type == 'kitti':
         save_format = '{frame} {id} pedestrian 0 0 -10 {x1} {y1} {x2} {y2} -10 -10 -10 -1000 -1000 -1000 -10\n'
     else:
@@ -100,16 +100,16 @@ def write_results_dict(filename, results_dict, data_type, num_classes=5):
     logger.info('save results to {}'.format(filename))
 
 def write_pose(filename, result):
-    save_format = '{frame},{x1},{y1},{w},{h},{pose},{score}\n'
+    save_format = '{frame}, {x1}, {y1}, {w}, {h}, {pose}, {score}\n'
     with open(filename, 'w') as f:
-        frame_id, tlwh, pose, score = result
-        x1, y1, w, h = tlwh
-        line = save_format.format(frame=frame_id,
-                                    x1=x1, y1=y1, w=w, h=h,
-                                    pose=pose,
-                                    score=score)
-        f.write(line)
-    logger.info('save pose results to {}'.format(filename2))
+        for frame_id, tlwh, pose, score in result:
+            x1, y1, w, h = tlwh[0] if len(tlwh) > 0 else (0, 0, 0, 0)
+            line = save_format.format(frame=frame_id,
+                                        x1=x1, y1=y1, w=w, h=h,
+                                        pose=pose[0],
+                                        score=score[0])
+            f.write(line)
+    logger.info('save pose results to {}'.format(filename))
 
 
 def eval_seq(opt, dataloader, data_type, result_filename, pose_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
@@ -160,10 +160,9 @@ def eval_seq(opt, dataloader, data_type, result_filename, pose_filename, save_di
                     # if cls_id == 0:
                     #     online_pose_scores.append(pose_score)
                     #     online_pose.append(pose)
-        
         pose = torch.max(pose_scores, 1)[1].squeeze().cpu().numpy()
         pose_scores = pose_scores.squeeze().cpu().numpy()
-        print(f'pose score {pose_scores} pose {pose}')
+        # print(f'pose score {pose_scores} pose {pose}')
         online_pose_scores.append(pose_scores)
         online_pose.append(pose)
 
