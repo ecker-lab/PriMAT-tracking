@@ -82,8 +82,9 @@ class BaseTrainer(object):
         self.optimizer.step()
       # added for eval
       else:
-        gt.append(batch['pose'].cpu().detach().numpy())
-        pred.append(np.argmax(output['pose'].cpu().detach().numpy()))
+        if 'pose' in self.loss_stats:
+          gt.append(batch['pose'].cpu().detach().numpy())
+          pred.append(np.argmax(output['pose'].cpu().detach().numpy()))
 
       batch_time.update(time.time() - end)
       end = time.time()
@@ -111,7 +112,7 @@ class BaseTrainer(object):
     bar.finish()
     ret = {k: v.avg for k, v in avg_loss_stats.items()}
     ret['time'] = bar.elapsed_td.total_seconds() / 60.
-    if not phase == 'train':
+    if not phase == 'train' and 'pose' in self.loss_stats:
       return ret, results, confusion_matrix(gt, pred)
     return ret, results
 

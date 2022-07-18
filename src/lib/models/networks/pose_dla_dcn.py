@@ -500,27 +500,28 @@ class DLASeg(nn.Module):
 
         # new stuff for pose head --richard
         # -----------------------------------------
-        self.K = 50 # number of detections per frame
-        # self.conf_thres = 0.02 # confidence threshold for heatmap detections
-        self.nCls = self.heads['mpc']
-        self.emb_scale = math.sqrt(2) * math.log(self.nCls - 1)
-        self.emb_dim = 128
-        # self.classifier = nn.Linear(self.emb_dim, self.nID)
-        # --mine
-        self.num_classes = num_classes
-        self.num_poses = num_poses
-        self.cat_spec_wh = cat_spec_wh
-        self.clsID4Pose = clsID4Pose
-        self.conf_thres = conf_thres
-        self.MONKEY = 0
-        self.pose_classifier = nn.Sequential(
-                # nn.Linear(self.emb_dim, self.nCls, bias=True))
-                nn.Linear(self.emb_dim, self.num_poses, bias=True))
-        # if not self.training:
-        #         # self.pose_classifier.append(nn.Sigmoid())
-        #         self.pose_classifier.append(nn.Softmax())
-        self.sm = nn.Softmax()
-        # -----------------------------------------
+        if 'mpc' in self.heads:
+            self.K = 50 # number of detections per frame
+            # self.conf_thres = 0.02 # confidence threshold for heatmap detections
+            self.nCls = self.heads['mpc']
+            self.emb_scale = math.sqrt(2) * math.log(self.nCls - 1)
+            self.emb_dim = 128
+            # self.classifier = nn.Linear(self.emb_dim, self.nID)
+            # --mine
+            self.num_classes = num_classes
+            self.num_poses = num_poses
+            self.cat_spec_wh = cat_spec_wh
+            self.clsID4Pose = clsID4Pose
+            self.conf_thres = conf_thres
+            self.MONKEY = 0
+            self.pose_classifier = nn.Sequential(
+                    # nn.Linear(self.emb_dim, self.nCls, bias=True))
+                    nn.Linear(self.emb_dim, self.num_poses, bias=True))
+            # if not self.training:
+            #         # self.pose_classifier.append(nn.Sigmoid())
+            #         self.pose_classifier.append(nn.Softmax())
+            self.sm = nn.Softmax(dim=1)
+            # -----------------------------------------
 
 
     def forward(self, x):
@@ -536,7 +537,8 @@ class DLASeg(nn.Module):
         for head in self.heads:
             z[head] = self.__getattr__(head)(y[-1])
 
-        # return [z]
+        if not 'mpc' in self.heads:
+            return [z]
         # new stuff for pose head -- richard
         # -----------------------------------------
         hm = z['hm'].clone().sigmoid_()

@@ -106,7 +106,8 @@ class McMotLoss(torch.nn.Module):
         self.crit_wh = torch.nn.L1Loss(reduction='sum') if opt.dense_wh else \
             NormRegL1Loss() if opt.norm_wh else \
                 RegWeightedL1Loss() if opt.cat_spec_wh else self.crit_reg
-        self.crit_pose = nn.CrossEntropyLoss(reduction='none') if opt.pose_loss == 'CrEn' else None
+        if 'mpc' in opt.heads:
+            self.crit_pose = nn.CrossEntropyLoss(reduction='none') if opt.pose_loss == 'CrEn' else None
         # self.crit_pose = F.cross_entropy()
         self.opt = opt
 
@@ -138,7 +139,10 @@ class McMotLoss(torch.nn.Module):
 
     def forward(self, outputs, batch):
         opt = self.opt
-        hm_loss, wh_loss, off_loss, reid_loss, pose_loss = 0, 0, 0, 0, 0
+        if 'mpc' in opt.heads:
+            hm_loss, wh_loss, off_loss, reid_loss, pose_loss = 0, 0, 0, 0, 0
+        else:
+            hm_loss, wh_loss, off_loss, reid_loss = 0, 0, 0, 0
         for s in range(opt.num_stacks):
             output = outputs[s]
             if not opt.mse_loss:
@@ -193,21 +197,32 @@ class McMotLoss(torch.nn.Module):
             # print(f"output[pose].shape: {output['pose'].shape} batch[pose].shape: {batch['pose'].shape}")
             # # if multiple outputs for one frame, expand target to be matched against all
             # batch['pose'] = batch['pose'].expand(1, output['pose'].size(0))
-            pose_loss += self.crit_pose(output['pose'].to(batch['pose'].device), batch['pose']) / opt.num_stacks
+            if 'mpc' in opt.heads:
+                pose_loss += self.crit_pose(output['pose'].to(batch['pose'].device), batch['pose']) / opt.num_stacks
 
         det_loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + opt.off_weight * off_loss
 
 
+        if 'mpc' in opt.heads:
+            if opt.multi_loss == 'uncertainty':
+                loss = torch.exp(-self.s_det) * det_loss + torch.exp(-self.s_id) * reid_loss + (self.s_det + self.s_id) + pose_loss
+                loss *= 0.5
+            else:
+                loss = det_loss + 0.1 * reid_loss + 0.1 * pose_loss
 
-        if opt.multi_loss == 'uncertainty':
-            loss = torch.exp(-self.s_det) * det_loss + torch.exp(-self.s_id) * reid_loss + (self.s_det + self.s_id) + pose_loss
-            loss *= 0.5
+            loss_stats = {'loss': loss, 'hm_loss': hm_loss,
+                        'wh_loss': wh_loss, 'off_loss': off_loss, 'id_loss': reid_loss,
+                        'pose_loss': pose_loss}
         else:
-            loss = det_loss + 0.1 * reid_loss + 0.1 * pose_loss
+            if opt.multi_loss == 'uncertainty':
+                loss = torch.exp(-self.s_det) * det_loss + torch.exp(-self.s_id) * reid_loss + (self.s_det + self.s_id)
+                loss *= 0.5
+            else:
+                loss = det_loss + 0.1 * reid_loss
 
-        loss_stats = {'loss': loss, 'hm_loss': hm_loss,
-                      'wh_loss': wh_loss, 'off_loss': off_loss, 'id_loss': reid_loss,
-                      'pose_loss': pose_loss}
+            loss_stats = {'loss': loss, 'hm_loss': hm_loss,
+                        'wh_loss': wh_loss, 'off_loss': off_loss, 'id_loss': reid_loss
+                        }
         return loss, loss_stats
 
 
@@ -216,7 +231,10 @@ class MotTrainer(BaseTrainer):
         super(MotTrainer, self).__init__(opt, model, optimizer=optimizer)
 
     def _get_losses(self, opt):
-        loss_states = ['loss', 'hm_loss', 'wh_loss', 'off_loss', 'id_loss', 'pose_loss']
+        if 'mpc' in opt.heads:
+            loss_states = ['loss', 'hm_loss', 'wh_loss', 'off_loss', 'id_loss', 'pose_loss']
+        else:
+            loss_states = ['loss', 'hm_loss', 'wh_loss', 'off_loss', 'id_loss']
         # loss = MotLoss(opt)
         loss = McMotLoss(opt)  # multi-class multi-object tracking loss
         return loss_states, loss

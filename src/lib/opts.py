@@ -20,7 +20,9 @@ class opts(object):
                              help='resume an experiment. '
                                   'Reloaded the optimizer parameter and '
                                   'set load_model to model_last.pth '
-                                  'in the exp dir if load_model is empty.') 
+                                  'in the exp dir if load_model is empty.')
+    self.parser.add_argument('--store_opt', action='store_true',
+                             help='Whether the opts and call cmd shall be saved in the output during inference.')
 
     # system
     self.parser.add_argument('--gpus', default='0',
@@ -148,6 +150,8 @@ class opts(object):
                                 help='Define the names for the tracked classes.')
 
     # mpc
+    self.parser.add_argument('--use_pose', action='store_true',
+                                help='Enable training / inference for pose head.')
     self.parser.add_argument('--mpc_class_ids',
                                 default='0,1,2,3,4',
                                 help="ID's of monkey poses.")
@@ -255,8 +259,9 @@ class opts(object):
     opt.num_classes = dataset.num_classes
     opt.class_names = dataset.class_names
     # opt.clsID4Pose = filter(lambda x: opt.class_names[x] == 'monkey', range(len(opt.class_names)))
-    opt.pose_names = dataset.pose_names
-    opt.num_poses = dataset.num_poses
+    if opt.use_pose:
+      opt.pose_names = dataset.pose_names
+      opt.num_poses = dataset.num_poses
 
     # TODO added from MCMOT
     for reid_id in opt.reid_cls_ids.split(','):
@@ -280,8 +285,7 @@ class opts(object):
                    # 'wh': 2 if not opt.ltrb else 4,
                   #  'wh': 4,
                    'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
-                   'id': opt.reid_dim,
-                   'mpc': opt.head_mpc}
+                   'id': opt.reid_dim}
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
       # opt.nID = dataset.nID
@@ -291,6 +295,19 @@ class opts(object):
       # opt.img_size = (1088, 608) #Quer
       #opt.img_size = (864, 480)
       #opt.img_size = (320, 576)
+    elif opt.task == 'mot-p':
+      opt.heads = {'hm': opt.num_classes,
+                   # changed 
+                   # 'wh': 2 if not opt.ltrb else 4,
+                  #  'wh': 4,
+                   'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
+                   'id': opt.reid_dim,
+                   'mpc': opt.head_mpc}
+      if opt.reg_offset:
+        opt.heads.update({'reg': 2})
+      # opt.nID = dataset.nID
+      if opt.id_weight > 0:
+        opt.nID_dict = dataset.nID_dict
     else:
       assert 0, 'task not defined!'
     print('heads', opt.heads)
@@ -303,18 +320,30 @@ class opts(object):
     #             'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
     #             'dataset': 'jde', 'nID': 14455},
     # }
-    default_dataset_info = {
-            'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
-                    'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
-                    'class_names': opt.reid_cls_names.split(','),
-                    'num_poses': len(opt.mpc_class_ids.split(',')),
-                    'pose_names': opt.mpc_class_names.split(','),
-                    'mean': [0.408, 0.447, 0.470],
-                    'std': [0.289, 0.274, 0.278],
-                    'dataset': 'jde',
-                    'nID': 14455,
-                    'nID_dict': {}},
-    }
+    if opt.task == 'mot':
+      default_dataset_info = {
+              'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
+                      'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
+                      'class_names': opt.reid_cls_names.split(','),
+                      'mean': [0.408, 0.447, 0.470],
+                      'std': [0.289, 0.274, 0.278],
+                      'dataset': 'jde',
+                      'nID': 14455,
+                      'nID_dict': {}},
+      }
+    elif opt.task == 'mot-p':
+      default_dataset_info = {
+              'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
+                      'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
+                      'class_names': opt.reid_cls_names.split(','),
+                      'num_poses': len(opt.mpc_class_ids.split(',')),
+                      'pose_names': opt.mpc_class_names.split(','),
+                      'mean': [0.408, 0.447, 0.470],
+                      'std': [0.289, 0.274, 0.278],
+                      'dataset': 'jde',
+                      'nID': 14455,
+                      'nID_dict': {}},
+      }
 
     class Struct:
       def __init__(self, entries):

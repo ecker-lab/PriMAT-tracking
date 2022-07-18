@@ -27,7 +27,8 @@ def main(opt):
     data_config = json.load(f)
     trainset_paths = data_config['train']
     # added for val
-    valset_paths = data_config['val']
+    if opt.trainval:
+        valset_paths = data_config['val']
     dataset_root = data_config['root']
     f.close()
     transforms = T.Compose([T.ToTensor()])
@@ -46,7 +47,10 @@ def main(opt):
     opt.device = torch.device('cuda' if opt.gpus[0] >= 0 else 'cpu')
 
     print('Creating model...')
-    model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=opt.num_poses, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=opt.clsID4Pose, conf_thres=opt.conf_thres)
+    if opt.use_pose:
+        model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=opt.num_poses, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=opt.clsID4Pose, conf_thres=opt.conf_thres)
+    else:
+        model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=None, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=None, conf_thres=opt.conf_thres)
     if opt.train_only_pose:
         for name, param in model.named_parameters():
             if 'mpc' in name or 'pose_classifier' in name:
@@ -74,6 +78,9 @@ def main(opt):
         drop_last=True
     )
 
+    # images, _ = next(iter(train_loader))
+    # logger.graph_summary(model, images)
+
     if opt.trainval:
         val_loader = torch.utils.data.DataLoader(
             valset,
@@ -91,8 +98,6 @@ def main(opt):
     if opt.load_model != '':
         model, optimizer, start_epoch = load_model(
             model, opt.load_model, trainer.optimizer, opt.resume, opt.lr, opt.lr_step)
-
-    logger.graph_summary(model)
 
     lr = opt.lr
     for epoch in range(start_epoch + 1, opt.num_epochs + 1):
@@ -122,13 +127,17 @@ def main(opt):
                        epoch, model, optimizer)
         if opt.trainval:
             if opt.val_intervals > 0 and opt.val_intervals % epoch == 0:
-                log_dict_val, _, cmat = trainer.val(epoch, val_loader)
+                if 'pose' in opt.heads:
+                    log_dict_val, _, cmat = trainer.val(epoch, val_loader)
+                else:
+                    log_dict_val, _ = trainer.val(epoch, val_loader)
                 for k, v in log_dict_val.items():
                     logger.scalar_summary('val_{}'.format(k), v, epoch)
                     
                     logger.write('{} {:8f} | '.format(k, v))
                 logger.write('\n')
-                logger.val_summary('val_cmat', cmat, epoch)
+                if 'mpc' in opt.heads:
+                    logger.val_summary('val_cmat', cmat, epoch)
     logger.close()
 
 

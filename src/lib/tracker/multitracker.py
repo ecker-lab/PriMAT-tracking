@@ -670,7 +670,10 @@ class MCJDETracker(object):
         else:
             opt.device = torch.device('cpu')
         print('Creating model...')
-        self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=opt.num_poses, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=opt.clsID4Pose, conf_thres=opt.conf_thres)
+        if opt.use_pose:
+            self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=opt.num_poses, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=opt.clsID4Pose, conf_thres=opt.conf_thres)
+        else:
+            self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=None, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=None, conf_thres=opt.conf_thres)
         self.model = load_model(self.model, opt.load_model)
         self.model = self.model.to(opt.device)
         self.model.eval()
@@ -771,7 +774,8 @@ class MCJDETracker(object):
 
             reg = output['reg'] if self.opt.reg_offset else None
             
-            pose_score = output['pose']
+            if 'mpc' in self.opt.heads:
+                pose_score = output['pose']
             # detection decoding
             # print(hm.shape, wh.shape,reg.shape,self.opt.num_classes, self.opt.cat_spec_wh, self.opt.K)
             #   [1,5,152,272] [1,2,152,272] [1,2,152,272] 5 False 50
@@ -969,7 +973,10 @@ class MCJDETracker(object):
             logger.debug('Removed: {}'.format(
                 [track.track_id for track in removed_tracks_dict[cls_id]]))
 
-        return output_tracks_dict, pose_score
+        if 'mpc' in self.opt.heads:
+            return output_tracks_dict, pose_score
+        else:
+            return output_tracks_dict
 
     
 class JDETrackerOld(JDETracker):

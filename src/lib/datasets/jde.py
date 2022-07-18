@@ -152,9 +152,10 @@ class LoadImagesAndLabels:  # for training
                             for x in self.img_files]
 
         # added read in of pose labels
-        with open(path.replace('.','_pose.'), 'r') as file:
-            self.pose_labels = [x.rstrip() for x in file.readlines()]
-            self.pose_labels = list(filter(lambda x: len(x) > 0, self.pose_labels))
+        if 'mps' in self.opt.heads:
+            with open(path.replace('.','_pose.'), 'r') as file:
+                self.pose_labels = [x.rstrip() for x in file.readlines()]
+                self.pose_labels = list(filter(lambda x: len(x) > 0, self.pose_labels))
 
         self.nF = len(self.img_files)  # number of image files
         self.width = img_size[0]
@@ -166,7 +167,10 @@ class LoadImagesAndLabels:  # for training
     def __getitem__(self, files_index):
         img_path = self.img_files[files_index]
         label_path = self.label_files[files_index]
-        return self.get_data(img_path, label_path), self.pose_labels[files_index]
+        if 'mpc' in self.opt.heads:
+            return self.get_data(img_path, label_path), self.pose_labels[files_index]
+        else:
+            return self.get_data(img_path, label_path)
 
     def get_data(self, img_path, label_path):
         height = self.height
@@ -381,12 +385,14 @@ class JointDataset(LoadImagesAndLabels):  # for training
         self.tid_start_index = OrderedDict()
 
         # added for pose
-        self.pose_labels = OrderedDict()
+        if self.opt.use_pose:
+            self.pose_labels = OrderedDict()
 
         self.num_classes = len(opt.reid_cls_ids.split(','))
         self.class_names = opt.reid_cls_names.split(',')
-        self.num_poses = len(opt.mpc_class_ids.split(','))
-        self.pose_names = opt.mpc_class_names.split(',')
+        if self.opt.use_pose:
+            self.num_poses = len(opt.mpc_class_ids.split(','))
+            self.pose_names = opt.mpc_class_names.split(',')
 
         for ds, path in paths.items():
             with open(path, 'r') as file:
@@ -400,9 +406,10 @@ class JointDataset(LoadImagesAndLabels):  # for training
 
 
             # added read in of pose labels
-            with open(path.replace('lab.','lab_pose.'), 'r') as file:
-                self.pose_labels[ds] = [x.rstrip() for x in file.readlines()]
-                self.pose_labels[ds] = list(filter(lambda x: len(x) > 0, self.pose_labels[ds]))
+            if self.opt.use_pose:
+                with open(path.replace('lab.','lab_pose.'), 'r') as file:
+                    self.pose_labels[ds] = [x.rstrip() for x in file.readlines()]
+                    self.pose_labels[ds] = list(filter(lambda x: len(x) > 0, self.pose_labels[ds]))
 
 
         for ds, label_paths in self.label_files.items():
@@ -463,8 +470,9 @@ class JointDataset(LoadImagesAndLabels):  # for training
         label_path = self.label_files[ds][files_index - start_index]
 
         # added for pose
-        pose = self.pose_labels[ds][files_index - start_index]
-        pose = torch.tensor(int(pose))
+        if self.opt.use_pose:
+            pose = self.pose_labels[ds][files_index - start_index]
+            pose = torch.tensor(int(pose))
 
         imgs, labels, img_path, (input_h, input_w) = self.get_data(img_path, label_path)
         for i, _ in enumerate(labels):
@@ -542,7 +550,10 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 # bbox_xys[k] = bbox_xy
             # pose = self.pose_labels[k][files_index]
 
-        ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask,'pose': pose, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
+        if self.opt.use_pose:
+            ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask, 'pose': pose, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
+        else:
+            ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
         return ret
 
 
