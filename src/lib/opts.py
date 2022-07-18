@@ -333,7 +333,7 @@ class opts(object):
       }
     elif opt.task == 'mot-p':
       default_dataset_info = {
-              'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
+              'mot-p': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
                       'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
                       'class_names': opt.reid_cls_names.split(','),
                       'num_poses': len(opt.mpc_class_ids.split(',')),
