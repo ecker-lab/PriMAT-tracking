@@ -407,7 +407,7 @@ class JointDataset(LoadImagesAndLabels):  # for training
 
             # added read in of pose labels
             if self.opt.use_pose:
-                with open(path.replace('lab.','lab_pose.'), 'r') as file:
+                with open(path.replace('.train','-pose.train').replace('.val','-pose.val'), 'r') as file:
                     self.pose_labels[ds] = [x.rstrip() for x in file.readlines()]
                     self.pose_labels[ds] = list(filter(lambda x: len(x) > 0, self.pose_labels[ds]))
 
