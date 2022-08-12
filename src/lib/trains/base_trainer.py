@@ -112,7 +112,7 @@ class BaseTrainer(object):
     bar.finish()
     ret = {k: v.avg for k, v in avg_loss_stats.items()}
     ret['time'] = bar.elapsed_td.total_seconds() / 60.
-    if not phase == 'train' and 'pose' in self.loss_stats:
+    if not phase == 'train' and 'pose_loss' in self.loss_stats:
       return ret, results, confusion_matrix(gt, pred)
     return ret, results
 
@@ -127,8 +127,10 @@ class BaseTrainer(object):
     raise NotImplementedError
   
   def val(self, epoch, data_loader):
-    ret, results, cmat = self.run_epoch('val', epoch, data_loader)
-    return ret, results, cmat
+    ret, results, *cmat = self.run_epoch('val', epoch, data_loader)
+    if cmat:
+      return ret, results, cmat[0]
+    return ret, results
 
   def train(self, epoch, data_loader):
     return self.run_epoch('train', epoch, data_loader)

@@ -126,8 +126,8 @@ def main(opt):
             save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)),
                        epoch, model, optimizer)
         if opt.trainval:
-            if opt.val_intervals > 0 and opt.val_intervals % epoch == 0:
-                if 'pose' in opt.heads:
+            if epoch % opt.val_intervals == 0:
+                if 'mpc' in opt.heads:
                     log_dict_val, _, cmat = trainer.val(epoch, val_loader)
                 else:
                     log_dict_val, _ = trainer.val(epoch, val_loader)

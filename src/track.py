@@ -70,7 +70,7 @@ def write_results_score(filename, results, data_type):
     logger.info('save results to {}'.format(filename))
 
 def write_results_dict(filename, results_dict, data_type, num_classes=5):
-    if data_type == 'mot' or data_type == 'mot-p':
+    if data_type == 'mot':
         # save_format = '{frame},{id},{x1},{y1},{w},{h},{s},1,-1,-1,-1\n'
         # save_format = '{frame},{id},{x1},{y1},{w},{h},1,{cls_id},1\n'
         save_format = '{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id},1\n'

@@ -281,35 +281,28 @@ class opts(object):
 
     if opt.task == 'mot':
       opt.heads = {'hm': opt.num_classes,
-                   # changed 
-                   # 'wh': 2 if not opt.ltrb else 4,
-                  #  'wh': 4,
-                   'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
-                   'id': opt.reid_dim}
-      if opt.reg_offset:
-        opt.heads.update({'reg': 2})
-      # opt.nID = dataset.nID
-      if opt.id_weight > 0:
-        opt.nID_dict = dataset.nID_dict
-      #opt.img_size = (608, 1088) #Hoch, also have to change it in datasets/jde.py (Load Video)
-      # opt.img_size = (1088, 608) #Quer
-      #opt.img_size = (864, 480)
-      #opt.img_size = (320, 576)
-    elif opt.task == 'mot-p':
-      opt.heads = {'hm': opt.num_classes,
-                   # changed 
-                   # 'wh': 2 if not opt.ltrb else 4,
-                  #  'wh': 4,
-                   'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
-                   'id': opt.reid_dim,
-                   'mpc': opt.head_mpc}
-      if opt.reg_offset:
-        opt.heads.update({'reg': 2})
-      # opt.nID = dataset.nID
-      if opt.id_weight > 0:
-        opt.nID_dict = dataset.nID_dict
+                    # changed 
+                    # 'wh': 2 if not opt.ltrb else 4,
+                    # 'wh': 4,
+                    'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
+                    'id': opt.reid_dim}
+    
     else:
       assert 0, 'task not defined!'
+    
+    if opt.use_pose:
+      opt.heads.update({'mpc': opt.head_mpc})
+      
+    if opt.reg_offset:
+      opt.heads.update({'reg': 2})
+    # opt.nID = dataset.nID
+    if opt.id_weight > 0:
+      opt.nID_dict = dataset.nID_dict
+    #opt.img_size = (608, 1088) #Hoch, also have to change it in datasets/jde.py (Load Video)
+    # opt.img_size = (1088, 608) #Quer
+    #opt.img_size = (864, 480)
+    #opt.img_size = (320, 576)
+    
     print('heads', opt.heads)
     return opt
 
@@ -320,30 +313,21 @@ class opts(object):
     #             'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
     #             'dataset': 'jde', 'nID': 14455},
     # }
-    if opt.task == 'mot':
-      default_dataset_info = {
-              'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
-                      'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
-                      'class_names': opt.reid_cls_names.split(','),
-                      'mean': [0.408, 0.447, 0.470],
-                      'std': [0.289, 0.274, 0.278],
-                      'dataset': 'jde',
-                      'nID': 14455,
-                      'nID_dict': {}},
-      }
-    elif opt.task == 'mot-p':
-      default_dataset_info = {
-              'mot-p': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
-                      'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
-                      'class_names': opt.reid_cls_names.split(','),
+    default_dataset_info = {
+            'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
+                    'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
+                    'class_names': opt.reid_cls_names.split(','),
+                    'mean': [0.408, 0.447, 0.470],
+                    'std': [0.289, 0.274, 0.278],
+                    'dataset': 'jde',
+                    'nID': 14455,
+                    'nID_dict': {}},
+    }
+    if opt.use_pose:
+      default_dataset_info['mot'].update({
                       'num_poses': len(opt.mpc_class_ids.split(',')),
-                      'pose_names': opt.mpc_class_names.split(','),
-                      'mean': [0.408, 0.447, 0.470],
-                      'std': [0.289, 0.274, 0.278],
-                      'dataset': 'jde',
-                      'nID': 14455,
-                      'nID_dict': {}},
-      }
+                      'pose_names': opt.mpc_class_names.split(',')
+      })
 
     class Struct:
       def __init__(self, entries):
