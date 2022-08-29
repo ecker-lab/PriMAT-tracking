@@ -57,10 +57,6 @@ def main(opt):
                 param.requires_grad = True
             else:
                 param.requires_grad = False
-        # for param in model.parameters():
-        #     param.requires_grad = False        
-        # for param in model.mpc.parameters():
-        #     param.requires_grad = True
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), opt.lr)
     else:
         optimizer = torch.optim.Adam(model.parameters(), opt.lr)
@@ -122,9 +118,9 @@ def main(opt):
             print('Drop LR to', lr)
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
-        if epoch % 10 == 0:
-            save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)),
-                       epoch, model, optimizer)
+        # if epoch % 10 == 0:
+        #     save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)),
+        #                epoch, model, optimizer)
         if opt.trainval:
             if epoch % opt.val_intervals == 0:
                 if 'mpc' in opt.heads:
