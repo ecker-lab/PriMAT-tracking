@@ -385,9 +385,7 @@ class JDETracker(object):
         self.removed_tracks_dict = defaultdict(list)
 
         self.frame_id = 0
-        # self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
-        # self.max_time_lost = self.buffer_size
-        self.max_frames_between_det = int(frame_rate / 10.0 * self.opt.track_buffer)
+        self.max_frames_between_det = int(frame_rate * self.opt.track_buffer)
         self.max_per_image = opt.K
         self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
@@ -683,9 +681,7 @@ class MCJDETracker(object):
         self.removed_tracks_dict = defaultdict(list)  # type: list[STrack]
 
         self.frame_id = 0
-        # self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
-        # self.max_time_lost = self.buffer_size
-        self.max_frames_between_det = int(frame_rate / 10.0 * self.opt.track_buffer)
+        self.max_frames_between_det = int(frame_rate * self.opt.track_buffer)
         self.max_per_image = opt.K
         self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
