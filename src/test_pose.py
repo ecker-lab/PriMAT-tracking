@@ -91,27 +91,38 @@ def main(opt):
        
     class_names = ['walking', 'sitting', 'standing2legs', 'standing4legs', 'NiS']
      
-    cmat = confusion_matrix(gt, pred)
+    # cmat = confusion_matrix(gt, pred)
     
     
-    fig = plt.figure(figsize=(5, 5), dpi=150)
-    # plt.imshow(cmat, cmap='plasma')
-    # plt.colorbar()
-    hm = sns.heatmap(cmat, annot=True, fmt='d', linewidths=.5, cmap='plasma', square=True, cbar_kws={'shrink':0.6})
-    # plt.title('Confusion Matrix of Classification', fontsize=20)
-    # plt.xlabel('Prediction', labelpad=10, fontsize=20)
-    # plt.ylabel('Ground-Truth', labelpad=10, fontsize=20)
-    # plt.xticks(np.arange(len(class_names)), class_names)
-    # plt.xticks(rotation=25)
-    # plt.yticks(np.arange(len(class_names)), class_names)
-    # plt.tight_layout()
-    hm.set(ylabel='Ground Truth', xlabel='Prediction', title='Confusion Matrix of Classification')
-    hm.set_xticklabels(labels=class_names, rotation=30)
-    hm.set_yticklabels(labels=class_names, rotation=0)
+    # fig = plt.figure(figsize=(5, 5), dpi=150)
+    # hm = sns.heatmap(cmat, annot=True, fmt='d', linewidths=.5, cmap='plasma', square=True, cbar_kws={'shrink':0.6})
+    # hm.set(ylabel='Ground Truth', xlabel='Prediction', title='Confusion Matrix of Classification')
+    # hm.set_xticklabels(labels=class_names, rotation=30)
+    # hm.set_yticklabels(labels=class_names, rotation=0)
+    # # plt.show()
+    # fig = hm.get_figure()
+    # fig.tight_layout()
+    # fig.savefig('cmat_val_classic-style.png')
+
+    cf_matrix = confusion_matrix(gt, pred)
+
+    sns.set(rc = {'figure.figsize':(15,8)})
+    ax = sns.heatmap(cf_matrix, annot=True, cmap='Blues', fmt='g')
+
+    ax.set_title('Action evaluation\n\n');
+    ax.set_xlabel('\nPredicted Values')
+    ax.set_ylabel('Actual Values ');
+
+    ## Ticket labels - List must be in alphabetical order
+    ax.xaxis.set_ticklabels(class_names)
+    ax.yaxis.set_ticklabels(class_names)
+
+    plt.yticks(rotation=0)
+    plt.xticks(rotation=0)
+    ## Display the visualization of the Confusion Matrix.
     # plt.show()
-    fig = hm.get_figure()
-    fig.tight_layout()
-    fig.savefig('cmat_val.png')
+    fig = ax.get_figure()
+    fig.savefig('cmat_val_classic-style.png')
 
 if __name__ == '__main__':
     torch.cuda.set_device(0)
