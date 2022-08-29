@@ -184,7 +184,8 @@ def plot_tracks(image,
                 pose_scores=None,
                 scores=None,
                 frame_id=0,
-                fps=0.0):
+                fps=0.0,
+                line_thickness=1):
 
     img = np.ascontiguousarray(np.copy(image))
     im_h, im_w = img.shape[:2]
@@ -204,7 +205,7 @@ def plot_tracks(image,
     text_scale = max(1.0, image.shape[1] / 1200.)  # 1600.
     # text_thickness = 1 if text_scale > 1.1 else 1
     text_thickness = 2  # 自定义ID文本线宽
-    line_thickness = max(1, int(image.shape[1] / 500.))
+    line_thickness = max(line_thickness, int(image.shape[1] / 500.))
 
     radius = max(5, int(im_w / 140.))
 

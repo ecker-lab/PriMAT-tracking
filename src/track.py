@@ -201,7 +201,8 @@ def eval_seq(opt, dataloader, data_type, result_filename, pose_filename=None, sa
                                                             pose_names=opt.pose_names,
                                                             pose_scores=pose_scores,
                                                             frame_id=frame_id,
-                                                            fps=1.0 / timer.average_time)
+                                                            fps=1.0 / timer.average_time,
+                                                            line_thickness=opt.line_thickness)
             else:
                 online_im: ndarray = vis.plot_tracks(image=img0,
                                                             tlwhs_dict=online_tlwhs_dict,
@@ -209,7 +210,8 @@ def eval_seq(opt, dataloader, data_type, result_filename, pose_filename=None, sa
                                                             num_classes=opt.num_classes,
                                                             class_names=opt.class_names,
                                                             frame_id=frame_id,
-                                                            fps=1.0 / timer.average_time)
+                                                            fps=1.0 / timer.average_time,
+                                                            line_thickness=opt.line_thickness)
         if show_image:
             cv2.imshow('online_im', online_im)
         if save_dir is not None:

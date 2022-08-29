@@ -9,6 +9,7 @@ import sys
 class opts(object):
   def __init__(self):
     self.parser = argparse.ArgumentParser()
+    
     # basic experiment setting
     self.parser.add_argument('task', default='mot', help='mot')
     self.parser.add_argument('--dataset', default='jde', help='jde')
@@ -31,16 +32,14 @@ class opts(object):
                              help='dataloader threads. 0 for single-thread.')
     self.parser.add_argument('--not_cuda_benchmark', action='store_true',
                              help='disable when the input size is not fixed.')
-    self.parser.add_argument('--seed', type=int, default=317, 
-                             help='random seed') # from CornerNet
+    # self.parser.add_argument('--seed', type=int, default=317, 
+    #                          help='random seed') # from CornerNet
 
     # log
     self.parser.add_argument('--print_iter', type=int, default=0, 
                              help='disable progress bar and print to screen.')
     self.parser.add_argument('--hide_data_time', action='store_true',
                              help='not display time during training.')
-    self.parser.add_argument('--save_all', action='store_true',
-                             help='save model to disk every 5 epochs.')
     self.parser.add_argument('--metric', default='loss', 
                              help='main metric to save best model')
     self.parser.add_argument('--vis_thresh', type=float, default=0.5,
@@ -51,11 +50,6 @@ class opts(object):
                              help='model architecture. Currently tested'
                                   'resdcn_34 | resdcn_50 | resfpndcn_34 |'
                                   'dla_34 | hrnet_18')
-    # self.parser.add_argument('--arch',
-    #                              default='resdcn_18',
-    #                              help='model architecture. Currently tested'
-    #                                   'resdcn_18 |resdcn_34 | resdcn_50 | resfpndcn_34 |'
-    #                                   'dla_34 | hrnet_32 | hrnet_18 | cspdarknet_53')
     self.parser.add_argument('--head_conv', type=int, default=-1,
                              help='conv layer channels for output head'
                                   '0 for no conv layer'
@@ -63,7 +57,8 @@ class opts(object):
                                   '256 for resnets and 256 for dla.')
     self.parser.add_argument('--down_ratio', type=int, default=4,
                              help='output stride. Currently only supports 4.')
-    # mpc part of model
+    
+    # additional heads
     self.parser.add_argument('--head_mpc', type=int, default=-1,
                              help='channels for mpc head'
                                   '0 for no mpc layer'
@@ -97,9 +92,11 @@ class opts(object):
     self.parser.add_argument('--trainval', action='store_true',
                              help='include validation in training and '
                                   'test on test set')
+    self.parser.add_argument('--save_all', action='store_true',
+                             help='save more than just last model to disk.')
 
     # test
-    self.parser.add_argument('--K', type=int, default=50, #default was 500
+    self.parser.add_argument('--K', type=int, default=50,
                              help='max number of output objects.') 
     self.parser.add_argument('--not_prefetch_test', action='store_true',
                              help='not use parallal data pre-processing.')
@@ -109,25 +106,22 @@ class opts(object):
     self.parser.add_argument('--keep_res', action='store_true',
                              help='keep the original resolution'
                                   ' during validation.')
+    
+    # output manipulation
+    self.parser.add_argument('--line_thickness', type=int, default=1,
+                             help='manipulate thickness of bb lines during inference.')
+    
     # tracking
-    self.parser.add_argument('--test_mot16', default=False, help='test mot16')
-    self.parser.add_argument('--val_mot15', default=False, help='val mot15') 
-    self.parser.add_argument('--test_mot15', default=False, help='test mot15')
-    self.parser.add_argument('--val_mot16', default=False, help='val mot16 or mot15')
-    self.parser.add_argument('--test_mot17', default=False, help='test mot17')
-    self.parser.add_argument('--val_mot17', default=False, help='val mot17') #was True
-    self.parser.add_argument('--val_mot20', default=False, help='val mot20')
-    self.parser.add_argument('--test_mot20', default=False, help='test mot20')
-    self.parser.add_argument('--val_hie', default=False, help='val hie')
-    self.parser.add_argument('--test_hie', default=False, help='test hie')
     self.parser.add_argument('--conf_thres', type=float, default=0.02, help='confidence threshold for tracking')
     self.parser.add_argument('--proportion_emb', type=float, default=2, help='which proportion should the embedding get in the similarity measurement; sim = proportion_emb * emb_sim + iou_sim')
     self.parser.add_argument('--emb_sim_thres', type=float, default=0.6, help='embedding similarity threshold of new detection with detections from prior frames')
     self.parser.add_argument('--iou_sim_thres', type=float, default=0.5, help='iou similarity threshold of new detection with detections from prior frames')
     self.parser.add_argument('--det_thres', type=float, default=0.7, help='thresh for initializing new track')
+    # are we using non-max-supression?
     #self.parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresh for nms')
-    self.parser.add_argument('--track_buffer', type=int, default=30, help='tracking buffer')
+    self.parser.add_argument('--track_buffer', type=int, default=3, help='tracking buffer, in seconds how long a track should be kept active after last detection.')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
+    # I/O-things
     self.parser.add_argument('--input_video', type=str,
                              default='../videos/MOT16-03.mp4',
                              help='path to the input video')
@@ -149,7 +143,7 @@ class opts(object):
                                 default='monkey,patch,kong,branch,XBI',
                                 help='Define the names for the tracked classes.')
 
-    # mpc
+    # mpc head
     self.parser.add_argument('--use_pose', action='store_true',
                                 help='Enable training / inference for pose head.')
     self.parser.add_argument('--mpc_class_ids',
@@ -168,7 +162,6 @@ class opts(object):
     self.parser.add_argument('--mse_loss', action='store_true',
                              help='use mse loss or focal loss to train '
                                   'keypoint heatmaps.')
-
     self.parser.add_argument('--reg_loss', default='l1',
                              help='regression loss: sl1 | l1 | l2')
     self.parser.add_argument('--hm_weight', type=float, default=1,
@@ -189,7 +182,7 @@ class opts(object):
     self.parser.add_argument('--pose_loss', default='CrEn',
                              help='pose loss: CrEn | none')
 
-
+    # additional head settings
     self.parser.add_argument('--norm_wh', action='store_true',
                              help='L1(\hat(y) / y, 1) or L1(\hat(y), y)')
     self.parser.add_argument('--dense_wh', action='store_true',
@@ -219,18 +212,14 @@ class opts(object):
     if opt.head_conv == -1: # init default head_conv
       opt.head_conv = 256 if 'dla' in opt.arch else 256
     if opt.head_mpc == -1:
-      opt.head_mpc = 128#len(opt.mpc_class_ids.split(',')) if 'dla' in opt.arch else 5
+      opt.head_mpc = 128
     opt.pad = 31
     opt.num_stacks = 1
-
-    # if opt.trainval:
-    #   opt.val_intervals = 100000000
 
     if opt.master_batch_size == -1:
       opt.master_batch_size = opt.batch_size // len(opt.gpus)
     rest_batch_size = (opt.batch_size - opt.master_batch_size)
     opt.chunk_sizes = [opt.master_batch_size]
-    # FIXME uneven number of gpus may cause problems
     for i in range(len(opt.gpus) - 1):
       slave_chunk_size = rest_batch_size // (len(opt.gpus) - 1)
       if i < rest_batch_size % (len(opt.gpus) - 1):
@@ -262,13 +251,16 @@ class opts(object):
     if opt.use_pose:
       opt.pose_names = dataset.pose_names
       opt.num_poses = dataset.num_poses
+      if len(opt.pose_names) > opt.num_poses:
+        print('[Err]: configuration conflict of pose_names and num_poses!')
+        return
 
-    # TODO added from MCMOT
     for reid_id in opt.reid_cls_ids.split(','):
       if int(reid_id) > opt.num_classes - 1:
         print('[Err]: configuration conflict of reid_cls_ids and num_classes!')
         return
 
+    # FIXME do we need all of this???
     # input_h(w): opt.input_h overrides opt.input_res overrides dataset default
     input_h = opt.input_res if opt.input_res > 0 else input_h
     input_w = opt.input_res if opt.input_res > 0 else input_w
@@ -281,10 +273,7 @@ class opts(object):
 
     if opt.task == 'mot':
       opt.heads = {'hm': opt.num_classes,
-                    # changed 
-                    # 'wh': 2 if not opt.ltrb else 4,
-                    # 'wh': 4,
-                    'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,
+                    'wh': 2 if not opt.cat_spec_wh else 2 * opt.num_classes,# 'wh': 2 if not opt.ltrb else 4,
                     'id': opt.reid_dim}
     
     else:
@@ -292,7 +281,7 @@ class opts(object):
     
     if opt.use_pose:
       opt.heads.update({'mpc': opt.head_mpc})
-      
+    # FIXME what is up here???
     if opt.reg_offset:
       opt.heads.update({'reg': 2})
     # opt.nID = dataset.nID
@@ -308,14 +297,9 @@ class opts(object):
 
   def init(self, args=''):
     opt = self.parse(args)
-    # default_dataset_info = {
-    #   'mot': {'default_resolution': [608, 1088], 'num_classes': 1,
-    #             'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
-    #             'dataset': 'jde', 'nID': 14455},
-    # }
     default_dataset_info = {
-            'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],  # [608, 1088], [320, 640]
-                    'num_classes': len(opt.reid_cls_ids.split(',')),  # 1
+            'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],
+                    'num_classes': len(opt.reid_cls_ids.split(',')),
                     'class_names': opt.reid_cls_names.split(','),
                     'mean': [0.408, 0.447, 0.470],
                     'std': [0.289, 0.274, 0.278],
@@ -333,7 +317,6 @@ class opts(object):
       def __init__(self, entries):
         for k, v in entries.items():
           self.__setattr__(k, v)
-    # opt = self.parse(args)
     h_w = default_dataset_info[opt.task]['default_resolution']
     opt.img_size = (h_w[1], h_w[0])
     print('Net input image size: {:d}×{:d}'.format(h_w[1], h_w[0]))
