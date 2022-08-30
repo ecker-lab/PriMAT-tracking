@@ -32,8 +32,9 @@ class opts(object):
                              help='dataloader threads. 0 for single-thread.')
     self.parser.add_argument('--not_cuda_benchmark', action='store_true',
                              help='disable when the input size is not fixed.')
-    # self.parser.add_argument('--seed', type=int, default=317, 
-    #                          help='random seed') # from CornerNet
+    # TODO used in inference and pose test 
+    self.parser.add_argument('--seed', type=int, default=317, 
+                             help='random seed') # from CornerNet
 
     # log
     self.parser.add_argument('--print_iter', type=int, default=0, 
