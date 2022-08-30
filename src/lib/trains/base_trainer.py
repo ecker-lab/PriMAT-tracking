@@ -8,6 +8,8 @@ from progress.bar import Bar
 from models.data_parallel import DataParallel
 from utils.utils import AverageMeter
 
+from sklearn.metrics import confusion_matrix
+import numpy as np
 
 class ModleWithLoss(torch.nn.Module):
   def __init__(self, model, loss):
@@ -51,6 +53,9 @@ class BaseTrainer(object):
         model_with_loss = self.model_with_loss.module
       model_with_loss.eval()
       torch.cuda.empty_cache()
+      # added for val
+      gt = []
+      pred = []
 
     opt = self.opt
     results = {}
@@ -70,10 +75,17 @@ class BaseTrainer(object):
 
       output, loss, loss_stats = model_with_loss(batch)
       loss = loss.mean()
+      # TODO freeze all weitghts except pose
       if phase == 'train':
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+      # added for eval
+      else:
+        if 'pose' in self.loss_stats:
+          gt.append(batch['pose'].cpu().detach().numpy())
+          pred.append(np.argmax(output['pose'].cpu().detach().numpy()))
+
       batch_time.update(time.time() - end)
       end = time.time()
 
@@ -100,6 +112,8 @@ class BaseTrainer(object):
     bar.finish()
     ret = {k: v.avg for k, v in avg_loss_stats.items()}
     ret['time'] = bar.elapsed_td.total_seconds() / 60.
+    if not phase == 'train' and 'pose_loss' in self.loss_stats:
+      return ret, results, confusion_matrix(gt, pred)
     return ret, results
 
   
@@ -113,7 +127,10 @@ class BaseTrainer(object):
     raise NotImplementedError
   
   def val(self, epoch, data_loader):
-    return self.run_epoch('val', epoch, data_loader)
+    ret, results, *cmat = self.run_epoch('val', epoch, data_loader)
+    if cmat:
+      return ret, results, cmat[0]
+    return ret, results
 
   def train(self, epoch, data_loader):
     return self.run_epoch('train', epoch, data_loader)

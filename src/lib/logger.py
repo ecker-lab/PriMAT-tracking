@@ -9,7 +9,8 @@ import sys
 import torch
 USE_TENSORBOARD = True
 try:
-  from torch.utils.tensorboard import SummaryWriter
+  # from torch.utils.tensorboard import SummaryWriter
+  import tensorboardX
   print('Using tensorboard')
 except:
   USE_TENSORBOARD = False
@@ -39,7 +40,7 @@ class Logger(object):
           
     log_dir = opt.save_dir + '/logs_{}'.format(time_str)
     if USE_TENSORBOARD:
-      self.writer = SummaryWriter(opt.tb_dir)
+      self.writer = tensorboardX.SummaryWriter(opt.tb_dir)
     if not os.path.exists(os.path.dirname(log_dir)):
       os.mkdir(os.path.dirname(log_dir))
     if not os.path.exists(log_dir):
@@ -71,6 +72,47 @@ class Logger(object):
     if USE_TENSORBOARD:
       self.writer.add_scalar(tag, value, step)
 
-  def val_summary(self, tag, img, step):
-    pass
+  def val_summary(self, tag, cmat, step):
+    if USE_TENSORBOARD:
+      import numpy as np
+      class_names = ['walking', 'sitting', 'standing2legs', 'standing4legs', 'NiS']
+      import matplotlib.pyplot as plt
+      fig = plt.figure(figsize=(10, 10), dpi=300)
+      plt.imshow(cmat, cmap='plasma')
+      plt.colorbar()
+      plt.title('Confusion Matrix of Classification', fontsize=20)
+      plt.xlabel('Prediction', labelpad=10, fontsize=20)
+      plt.ylabel('Ground-Truth', labelpad=10, fontsize=20)
+      plt.xticks(np.arange(len(class_names)), class_names)
+      plt.xticks(rotation=25)
+      plt.yticks(np.arange(len(class_names)), class_names)
+      plt.tight_layout()
+      
+      self.writer.add_figure(tag, fig, step)
 
+  def graph_summary(self, model, images):
+    if USE_TENSORBOARD:
+      from torchsummary import summary
+      # summary(model, input_size=in_size)
+
+      self.writer.add_graph(model, images)
+
+def save_opt(opt):
+  time_str = time.strftime('%Y-%m-%d-%H-%M')
+
+  args = dict((name, getattr(opt, name)) for name in dir(opt)
+              if not name.startswith('_'))
+  file_name = os.path.join(opt.output_root, 'opt.txt')
+  with open(file_name, 'wt') as opt_file:
+    opt_file.write('==> torch version: {}\n'.format(torch.__version__))
+    opt_file.write('==> cudnn version: {}\n'.format(
+      torch.backends.cudnn.version()))
+    opt_file.write('==> Cmd:\n')
+    # opt_file.write(str(sys.argv)+'\n')
+    opt_file.write(','.join(sys.argv).replace(',', ' ')+'/n')
+
+    opt_file.write(f'Execution start: {time_str}/n')
+
+    opt_file.write('==> Opt:\n')
+    for k, v in sorted(args.items()):
+      opt_file.write('  %s: %s\n' % (str(k), str(v)))

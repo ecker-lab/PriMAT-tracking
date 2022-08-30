@@ -1,0 +1,7 @@
+{
+	"root": "/home/matthias/monkey/fairmot-monkey-tracking/src/",
+	"train":
+	{
+		"lemur_box_train": "./data/lemur_box.train"
+	}
+}

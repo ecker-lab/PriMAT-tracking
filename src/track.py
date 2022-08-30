@@ -73,7 +73,7 @@ def write_results_dict(filename, results_dict, data_type, num_classes=5):
     if data_type == 'mot':
         # save_format = '{frame},{id},{x1},{y1},{w},{h},{s},1,-1,-1,-1\n'
         # save_format = '{frame},{id},{x1},{y1},{w},{h},1,{cls_id},1\n'
-        save_format = '{frame},{id},{x1},{y1},{w},{h},{score},{cls_id},1\n'
+        save_format = '{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id},1\n'
     elif data_type == 'kitti':
         save_format = '{frame} {id} pedestrian 0 0 -10 {x1} {y1} {x2} {y2} -10 -10 -10 -1000 -1000 -1000 -10\n'
     else:
@@ -99,8 +99,20 @@ def write_results_dict(filename, results_dict, data_type, num_classes=5):
                     f.write(line)
     logger.info('save results to {}'.format(filename))
 
+def write_pose(filename, result):
+    save_format = '{frame}, {x1}, {y1}, {w}, {h}, {pose}, {score}\n'
+    with open(filename, 'w') as f:
+        for frame_id, tlwh, pose, score in result:
+            x1, y1, w, h = tlwh[0] if len(tlwh) > 0 else (0, 0, 0, 0)
+            line = save_format.format(frame=frame_id,
+                                        x1=x1, y1=y1, w=w, h=h,
+                                        pose=pose[0],
+                                        score=score[0])
+            f.write(line)
+    logger.info('save pose results to {}'.format(filename))
 
-def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
+
+def eval_seq(opt, dataloader, data_type, result_filename, pose_filename=None, save_dir=None, show_image=True, frame_rate=30, use_cuda=True):
     if save_dir:
         mkdir_if_missing(save_dir)
     # tracker = JDETracker(opt, frame_rate=frame_rate)
@@ -108,6 +120,8 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
     timer = Timer()
     # results = []
     results_dict = defaultdict(list)
+    if 'mpc' in opt.heads:
+        results_pose = []
     frame_id = 0
     #for path, img, img0 in dataloader:
     for i, (path, img, img0) in enumerate(dataloader):
@@ -122,13 +136,24 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
             blob = torch.from_numpy(img).cuda().unsqueeze(0)
         else:
             blob = torch.from_numpy(img).unsqueeze(0)
-        online_targets_dict = tracker.update(blob, img0)
+        if 'mpc' in opt.heads:
+            online_targets_dict, pose_scores = tracker.update(blob, img0)
+        else:
+            online_targets_dict = tracker.update(blob, img0)
         online_tlwhs_dict = defaultdict(list)
         online_ids_dict = defaultdict(list)
         online_scores_dict = defaultdict(list)
+        if 'mpc' in opt.heads:
+            online_pose_scores = []
+            online_pose = []
         for cls_id in range(opt.num_classes):  # process each class id
             online_targets = online_targets_dict[cls_id]
             for t in online_targets:
+                # if cls_id == 0:
+                #     pose_score = t.pose_score
+                #     print('pose_score',pose_score)
+                #     pose = torch.max(pose_score, 1)
+                #     print('pose',pose)
                 tlwh = t.tlwh
                 tid = t.track_id
                 score = t.score
@@ -137,33 +162,65 @@ def eval_seq(opt, dataloader, data_type, result_filename, save_dir=None, show_im
                     online_tlwhs_dict[cls_id].append(tlwh)
                     online_ids_dict[cls_id].append(tid)
                     online_scores_dict[cls_id].append(score)
+                    # if cls_id == 0:
+                    #     online_pose_scores.append(pose_score)
+                    #     online_pose.append(pose)
+        if 'mpc' in opt.heads:
+            pose = torch.max(pose_scores, 1)[1].squeeze().cpu().numpy()
+            pose_scores = pose_scores.squeeze().cpu().numpy()
+            # print(f'pose score {pose_scores} pose {pose}')
+            online_pose_scores.append(pose_scores)
+            online_pose.append(pose)
+
         timer.toc()
         # save results
         # results.append((frame_id + 1, online_tlwhs, online_ids))
         # collect result
         for cls_id in range(opt.num_classes):
-            results_dict[cls_id].append((frame_id + 1,
+            results_dict[cls_id].append((frame_id,
                                             online_tlwhs_dict[cls_id],
                                             online_ids_dict[cls_id],
                                             online_scores_dict[cls_id]))
+        if 'mpc' in opt.heads:
+            results_pose.append((frame_id,
+                                    online_tlwhs_dict[0],
+                                    online_pose,
+                                    online_pose_scores))
+
         #results.append((frame_id + 1, online_tlwhs, online_ids, online_scores))
-        # if show_image or save_dir is not None:
-        #     # online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
-        #     #                               fps=1. / timer.average_time)
-        #     online_im: ndarray = vis.plot_tracks(image=img0,
-        #                                                  tlwhs_dict=online_tlwhs_dict,
-        #                                                  obj_ids_dict=online_ids_dict,
-        #                                                  num_classes=opt.num_classes,
-        #                                                  class_names=opt.class_names,
-        #                                                  frame_id=frame_id,
-        #                                                  fps=1.0 / timer.average_time)
-        # if show_image:
-        #     cv2.imshow('online_im', online_im)
-        # if save_dir is not None:
-        #     cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
+        if show_image or save_dir is not None:
+            # online_im = vis.plot_tracking(img0, online_tlwhs, online_ids, frame_id=frame_id,
+            #                               fps=1. / timer.average_time)
+            if 'mpc' in opt.heads:
+                online_im: ndarray = vis.plot_tracks(image=img0,
+                                                            tlwhs_dict=online_tlwhs_dict,
+                                                            obj_ids_dict=online_ids_dict,
+                                                            num_classes=opt.num_classes,
+                                                            class_names=opt.class_names,
+                                                            pose=pose,
+                                                            pose_names=opt.pose_names,
+                                                            pose_scores=pose_scores,
+                                                            frame_id=frame_id,
+                                                            fps=1.0 / timer.average_time,
+                                                            line_thickness=opt.line_thickness)
+            else:
+                online_im: ndarray = vis.plot_tracks(image=img0,
+                                                            tlwhs_dict=online_tlwhs_dict,
+                                                            obj_ids_dict=online_ids_dict,
+                                                            num_classes=opt.num_classes,
+                                                            class_names=opt.class_names,
+                                                            frame_id=frame_id,
+                                                            fps=1.0 / timer.average_time,
+                                                            line_thickness=opt.line_thickness)
+        if show_image:
+            cv2.imshow('online_im', online_im)
+        if save_dir is not None:
+            cv2.imwrite(os.path.join(save_dir, '{:05d}.jpg'.format(frame_id)), online_im)
         frame_id += 1
         # save results
     write_results_dict(result_filename, results_dict, data_type, opt.num_classes)
+    if 'mpc' in opt.heads:
+        write_pose(pose_filename, results_pose)
     #write_results_score(result_filename, results, data_type)
     return frame_id, timer.average_time, timer.calls
 

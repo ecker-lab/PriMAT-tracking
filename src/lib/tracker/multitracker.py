@@ -385,9 +385,7 @@ class JDETracker(object):
         self.removed_tracks_dict = defaultdict(list)
 
         self.frame_id = 0
-        # self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
-        # self.max_time_lost = self.buffer_size
-        self.max_frames_between_det = int(frame_rate / 10.0 * self.opt.track_buffer)
+        self.max_frames_between_det = int(frame_rate * self.opt.track_buffer)
         self.max_per_image = opt.K
         self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
@@ -670,7 +668,10 @@ class MCJDETracker(object):
         else:
             opt.device = torch.device('cpu')
         print('Creating model...')
-        self.model = create_model(opt.arch, opt.heads, opt.head_conv)
+        if opt.use_pose:
+            self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=opt.num_poses, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=opt.clsID4Pose, conf_thres=opt.conf_thres)
+        else:
+            self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=None, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=None, conf_thres=opt.conf_thres)
         self.model = load_model(self.model, opt.load_model)
         self.model = self.model.to(opt.device)
         self.model.eval()
@@ -680,9 +681,7 @@ class MCJDETracker(object):
         self.removed_tracks_dict = defaultdict(list)  # type: list[STrack]
 
         self.frame_id = 0
-        # self.buffer_size = int(frame_rate / 30.0 * opt.track_buffer)
-        # self.max_time_lost = self.buffer_size
-        self.max_frames_between_det = int(frame_rate / 10.0 * self.opt.track_buffer)
+        self.max_frames_between_det = int(frame_rate * self.opt.track_buffer)
         self.max_per_image = opt.K
         self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
@@ -770,7 +769,12 @@ class MCJDETracker(object):
             id_feature = F.normalize(id_feature, dim=1)
 
             reg = output['reg'] if self.opt.reg_offset else None
+            
+            if 'mpc' in self.opt.heads:
+                pose_score = output['pose']
             # detection decoding
+            # print(hm.shape, wh.shape,reg.shape,self.opt.num_classes, self.opt.cat_spec_wh, self.opt.K)
+            #   [1,5,152,272] [1,2,152,272] [1,2,152,272] 5 False 50
             dets, inds, cls_inds_mask = mot_decode(heatmap=hm,
                                                    wh=wh,
                                                    reg=reg,
@@ -778,12 +782,24 @@ class MCJDETracker(object):
                                                    cat_spec_wh=self.opt.cat_spec_wh,
                                                    K=self.opt.K)
             # id_feature = _tranpose_and_gather_feat(id_feature, inds)
-            
+            # dets: [1,50,6]
             # ----- get ReID feature vector by object class
             cls_id_feats = []  # topK feature vectors of each object class
             for cls_id in range(self.opt.num_classes):  # cls_id starts from 0
                 # get inds of each object class
+                # print(f'cls_inds_mask {cls_inds_mask.shape}')# [5,1,50] -- without N in mot_decode: [5,50]
+                # print(f'inds {inds.shape}')# [1,50]                     -- [1,50]
+                # print(f'cls_id {cls_id}')# 0                            -- 0
+                # cls_inds = inds[cls_inds_mask[cls_id]]
+                # [2]
+                #id_feature: [1,128,152,272]
                 cls_inds = inds[:, cls_inds_mask[cls_id]]
+                # 
+                # print('---------------')
+                # print(f'cls_inds {cls_inds.shape}')#                    -- [1,2]
+                # print(f'id_feature {id_feature.shape}')#                -- [1,128,152,272]
+                # print('---------------')
+
 
                 # gather feats for each object class
                 cls_id_feature = _tranpose_and_gather_feat(id_feature, cls_inds)  # inds: 1×128
@@ -953,7 +969,10 @@ class MCJDETracker(object):
             logger.debug('Removed: {}'.format(
                 [track.track_id for track in removed_tracks_dict[cls_id]]))
 
-        return output_tracks_dict
+        if 'mpc' in self.opt.heads:
+            return output_tracks_dict, pose_score
+        else:
+            return output_tracks_dict
 
     
 class JDETrackerOld(JDETracker):

@@ -13,6 +13,8 @@ from tracking_utils.log import logger
 import datasets.jde as datasets
 from track import eval_seq
 
+from logger import save_opt
+
 
 logger.setLevel(logging.INFO)
 
@@ -21,16 +23,22 @@ def demo(opt):
     result_root = opt.output_root if opt.output_root != '' else '.'
     mkdir_if_missing(result_root)
 
+    if opt.store_opt:
+        save_opt(opt)
+
     logger.info('Starting tracking...')
     dataloader = datasets.LoadVideo(opt.input_video, opt.img_size)
     result_filename = os.path.join(result_root, 'results.txt')
+    pose_filename = None
+    if 'mpc' in opt.heads:
+        pose_filename = os.path.join(result_root, 'poses.txt')
     frame_rate = dataloader.frame_rate
 
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
     # TODO what does show_image do?
-    eval_seq(opt, dataloader, 'mot', result_filename,
-             save_dir=frame_dir, show_image=False, frame_rate=frame_rate,
-             use_cuda=opt.gpus!=[-1])
+    eval_seq(opt, dataloader, opt.task, result_filename, pose_filename=pose_filename,
+            save_dir=frame_dir, show_image=False, frame_rate=frame_rate,
+            use_cuda=opt.gpus!=[-1])
 
     if opt.output_format == 'video':
         output_video_path = osp.join(result_root, opt.output_name + '.mp4')

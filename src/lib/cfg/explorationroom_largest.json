@@ -6,7 +6,7 @@
 	},
 	"val":
 	{
-		"monkeylab_val": "./data/lab.val"
+		"monkeylab_val": "./data/explorationroom_largest_sampled.val"
 	},
 	"test":
 	{

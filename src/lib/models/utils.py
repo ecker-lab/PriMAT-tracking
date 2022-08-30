@@ -10,9 +10,12 @@ def _sigmoid(x):
   return y
 
 def _gather_feat(feat, ind, mask=None):
-    dim  = feat.size(2)
+    #        [4,250,1], [4,50]
+    dim  = feat.size(2)# 1
     ind  = ind.unsqueeze(2).expand(ind.size(0), ind.size(1), dim)
-    feat = feat.gather(1, ind)
+    #       [4, 50, 1]      [4, 50, 1]
+    feat = feat.gather(1, ind)# 1 <- axis along wich to index, ind <- indicies of elements to gather
+    #[4, 50, 1]
     if mask is not None:
         mask = mask.unsqueeze(2).expand_as(feat)
         feat = feat[mask]
@@ -20,9 +23,10 @@ def _gather_feat(feat, ind, mask=None):
     return feat
 
 def _tranpose_and_gather_feat(feat, ind):
-    feat = feat.permute(0, 2, 3, 1).contiguous()
-    feat = feat.view(feat.size(0), -1, feat.size(3))
-    feat = _gather_feat(feat, ind)
+    feat = feat.permute(0, 2, 3, 1).contiguous()#[4,152,272,128]
+    feat = feat.view(feat.size(0), -1, feat.size(3))#[4,41344,128]
+    # print(f'feat {feat.size()} ind {ind.size()}')
+    feat = _gather_feat(feat, ind)#[4,41344,128], [1,1]
     return feat
 
 def flip_tensor(x):
