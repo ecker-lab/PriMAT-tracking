@@ -393,6 +393,12 @@ class JointDataset(LoadImagesAndLabels):  # for training
         if self.opt.use_pose:
             self.num_poses = len(opt.mpc_class_ids.split(','))
             self.pose_names = opt.mpc_class_names.split(',')
+            
+        # added for cat_spec_wh
+        if self.opt.cat_spec_wh:
+            self.wh_classes = self.num_classes
+        else:
+            self.wh_classes = 1
 
         for ds, path in paths.items():
             with open(path, 'r') as file:
@@ -487,9 +493,9 @@ class JointDataset(LoadImagesAndLabels):  # for training
         num_objs = labels.shape[0]
         hm = np.zeros((self.num_classes, output_h, output_w), dtype=np.float32)
         if self.opt.ltrb:
-            wh = np.zeros((self.max_objs, 4), dtype=np.float32)
+            wh = np.zeros((self.max_objs, 4 * self.wh_classes), dtype=np.float32)
         else:
-            wh = np.zeros((self.max_objs, 2), dtype=np.float32)# mcmot uses this one, without if/else
+            wh = np.zeros((self.max_objs, 2 * self.wh_classes), dtype=np.float32)# mcmot uses this one, without if/else
         reg = np.zeros((self.max_objs, 2), dtype=np.float32)
         ind = np.zeros((self.max_objs, ), dtype=np.int64)
         reg_mask = np.zeros((self.max_objs, ), dtype=np.uint8)
@@ -532,10 +538,10 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 ct_int = ct.astype(np.int32)
                 draw_gaussian(hm[cls_id], ct_int, radius)
                 if self.opt.ltrb:
-                    wh[k] = ct[0] - bbox_amodal[0], ct[1] - bbox_amodal[1], \
+                    wh[k, (cls_id*2,cls_id*2+1) if self.wh_classes > 1 else (0,1)] = ct[0] - bbox_amodal[0], ct[1] - bbox_amodal[1], \
                             bbox_amodal[2] - ct[0], bbox_amodal[3] - ct[1]
                 else:# only else for mcmot
-                    wh[k] = 1. * w, 1. * h
+                    wh[k, (cls_id*2,cls_id*2+1) if self.wh_classes > 1 else (0,1)] = 1. * w, 1. * h
                 ind[k] = ct_int[1] * output_w + ct_int[0]
                 reg[k] = ct - ct_int
                 reg_mask[k] = 1

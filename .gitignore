@@ -4,3 +4,4 @@
 /DCNv2
 /docker
 __pycache__/
+*.code-workspace

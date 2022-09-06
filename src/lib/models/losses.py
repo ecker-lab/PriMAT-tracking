@@ -46,6 +46,7 @@ def _neg_loss(pred, gt):
       pred (batch x c x h x w)
       gt_regr (batch x c x h x w)
   '''
+  # select locations where gt is 1 as positive cases and where gt < 1 as negative cases
   pos_inds = gt.eq(1).float()
   neg_inds = gt.lt(1).float()
 
@@ -53,6 +54,7 @@ def _neg_loss(pred, gt):
 
   loss = 0
 
+  # positive loss is prediction times negated predictions square at the position where gt is positive
   pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
   neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_weights * neg_inds
 
@@ -143,9 +145,7 @@ class RegL1Loss(nn.Module):
   def forward(self, output, mask, ind, target):
     pred = _tranpose_and_gather_feat(output, ind)
     mask = mask.unsqueeze(2).expand_as(pred).float()
-    # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
-    # FIXME which loss is better? activated one is mcmot other is richards
-    loss = F.l1_loss(pred * mask, target * mask, size_average=False)
+    loss = F.l1_loss(pred * mask, target * mask, reduction='sum')#size_average=False)
     # loss = F.l1_loss(pred * mask, target * mask, reduction='sum')
     #
     loss = loss / (mask.sum() + 1e-4)
@@ -170,10 +170,20 @@ class RegWeightedL1Loss(nn.Module):
     super(RegWeightedL1Loss, self).__init__()
   
   def forward(self, output, mask, ind, target):
+    # output (batch x c x h x w)
+    # ind (batch, det)
+    # (1 x 50 x 4) = (1 x 4 x 152 x 272) (1, 50)
     pred = _tranpose_and_gather_feat(output, ind)
-    mask = mask.float()
+    # (1 x 50 x 4) = (1 x 50)
+    mask = mask.unsqueeze(2).expand_as(pred).float()
     # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
-    loss = F.l1_loss(pred * mask, target * mask, size_average=False)
+    '''
+      pred (batch x det x 2c)
+      gt (batch x det x 2c)
+      maske (batch x det)
+    '''
+    # FIXME try weight loss!!! doesn't have any weights right now!
+    loss = F.l1_loss(pred * mask, target * mask, reduction='sum')#size_average=False)
     loss = loss / (mask.sum() + 1e-4)
     return loss
 

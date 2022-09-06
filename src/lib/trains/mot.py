@@ -99,7 +99,6 @@ class MotLoss(torch.nn.Module):
 class McMotLoss(torch.nn.Module):
     def __init__(self, opt):
         super(McMotLoss, self).__init__()
-
         self.crit = torch.nn.MSELoss() if opt.mse_loss else FocalLoss()
         self.crit_reg = RegL1Loss() if opt.reg_loss == 'l1' else \
             RegLoss() if opt.reg_loss == 'sl1' else None
@@ -144,11 +143,15 @@ class McMotLoss(torch.nn.Module):
         else:
             hm_loss, wh_loss, off_loss, reid_loss = 0, 0, 0, 0
         for s in range(opt.num_stacks):
+            # ----- Detection loss
             output = outputs[s]
             if not opt.mse_loss:
                 output['hm'] = _sigmoid(output['hm'])
 
+            # --- heat-map loss
             hm_loss += self.crit(output['hm'], batch['hm']) / opt.num_stacks
+            
+            # --- box width and height loss
             if opt.wh_weight > 0:
                 # FIXME this is from MCMOT. should we include it?
                 # if opt.dense_wh:
@@ -157,13 +160,17 @@ class McMotLoss(torch.nn.Module):
                 #                              batch['dense_wh'] * batch['dense_wh_mask']) /
                 #                 mask_weight) / opt.num_stacks
                 # else:  #
-                wh_loss += self.crit_reg(
+                # TODO rename reg_mask to something more useful! where? -> jde.py mot.py, multitracker.py
+                wh_loss += self.crit_wh(
                     output['wh'], batch['reg_mask'],
                     batch['ind'], batch['wh']) / opt.num_stacks
 
+            # --- bbox center offset loss
             if opt.reg_offset and opt.off_weight > 0:
                 off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
                                           batch['ind'], batch['reg']) / opt.num_stacks
+           
+            # ----- ReID loss: only process the class requiring ReID
             # if is irrelevant
             if opt.id_weight > 0:
                 cls_id_map = batch['cls_id_map']
@@ -193,8 +200,6 @@ class McMotLoss(torch.nn.Module):
                     #                                     ) / cls_id_pred.size(0)
                     # else:
                     #     reid_loss += self.ce_loss(cls_id_pred, cls_id_target)
-            # print(f"output[pose]: {output['pose']} batch[pose]: {batch['pose']}")
-            # print(f"output[pose].shape: {output['pose'].shape} batch[pose].shape: {batch['pose'].shape}")
             # # if multiple outputs for one frame, expand target to be matched against all
             # batch['pose'] = batch['pose'].expand(1, output['pose'].size(0))
             if 'mpc' in opt.heads:
