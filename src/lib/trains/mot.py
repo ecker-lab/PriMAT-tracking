@@ -160,6 +160,7 @@ class McMotLoss(torch.nn.Module):
                 #                              batch['dense_wh'] * batch['dense_wh_mask']) /
                 #                 mask_weight) / opt.num_stacks
                 # else:  #
+                # TODO rename reg_mask to something more useful! where? -> jde.py mot.py, multitracker.py
                 wh_loss += self.crit_wh(
                     output['wh'], batch['reg_mask'],
                     batch['ind'], batch['wh']) / opt.num_stacks

@@ -182,7 +182,7 @@ class RegWeightedL1Loss(nn.Module):
       gt (batch x det x 2c)
       maske (batch x det)
     '''
-    # FIXME weight loss!!! doesn't have any weights right now!
+    # FIXME try weight loss!!! doesn't have any weights right now!
     loss = F.l1_loss(pred * mask, target * mask, reduction='sum')#size_average=False)
     loss = loss / (mask.sum() + 1e-4)
     return loss
