@@ -143,57 +143,57 @@ def mot_decode(heatmap,
     return detections, inds, cls_inds_masks
 
 
-# new for pose head
-def decode_pose(heatmap,
-               wh,
-               pose,
-               clsID4Pose,
-               num_classes=2,
-               cat_spec_wh=False,
-               K=100):
+# # new for pose head
+# def decode_pose(heatmap,
+#                wh,
+#                pose,
+#                clsID4Pose,
+#                num_classes=2,
+#                cat_spec_wh=False,
+#                K=100):
     
-    N, C, H, W = heatmap.size()
+#     N, C, H, W = heatmap.size()
 
-    heatmap = _max_pool(heatmap)
+#     heatmap = _max_pool(heatmap)
 
-    scores, inds, classes, ys, xs, cls_inds_masks = _topk(heatmap=heatmap, K=K, num_classes=num_classes)
+#     scores, inds, classes, ys, xs, cls_inds_masks = _topk(heatmap=heatmap, K=K, num_classes=num_classes)
 
-    if reg is not None:
-        reg = _tranpose_and_gather_feat(reg, inds)
+#     if reg is not None:
+#         reg = _tranpose_and_gather_feat(reg, inds)
 
-        reg = reg.view(N, K, 2)
-        xs = xs.view(N, K, 1) + reg[:, :, 0:1]
-        ys = ys.view(N, K, 1) + reg[:, :, 1:2]
-    else:
-        # xs = xs.view(batch, K, 1) + 0.5
-        # ys = ys.view(batch, K, 1) + 0.5
-        xs = xs.view(N, K, 1) + 0.5
-        ys = ys.view(N, K, 1) + 0.5
+#         reg = reg.view(N, K, 2)
+#         xs = xs.view(N, K, 1) + reg[:, :, 0:1]
+#         ys = ys.view(N, K, 1) + reg[:, :, 1:2]
+#     else:
+#         # xs = xs.view(batch, K, 1) + 0.5
+#         # ys = ys.view(batch, K, 1) + 0.5
+#         xs = xs.view(N, K, 1) + 0.5
+#         ys = ys.view(N, K, 1) + 0.5
 
-    wh = _tranpose_and_gather_feat(wh, inds)
+#     wh = _tranpose_and_gather_feat(wh, inds)
     
-    # get inds of MONKEY object class
-    monkey_cls_inds = inds[:,cls_inds_masks[clsID4Pose]]
-    if not monkey_cls_inds.numel() == 0:
+#     # get inds of MONKEY object class
+#     monkey_cls_inds = inds[:,cls_inds_masks[clsID4Pose]]
+#     if not monkey_cls_inds.numel() == 0:
         
-    pose = _tranpose_and_gather_feat(pose, inds)
+#     pose = _tranpose_and_gather_feat(pose, inds)
 
-    if cat_spec_wh:
-        wh = wh.view(N, K, C, 2)
-        clses_ind = classes.view(N, K, 1, 1).expand(N, K, 1, 2).long()
-        wh = wh.gather(2, clses_ind).view(N, K, 2)
-    else:
-        wh = wh.view(N, K, 2)
+#     if cat_spec_wh:
+#         wh = wh.view(N, K, C, 2)
+#         clses_ind = classes.view(N, K, 1, 1).expand(N, K, 1, 2).long()
+#         wh = wh.gather(2, clses_ind).view(N, K, 2)
+#     else:
+#         wh = wh.view(N, K, 2)
 
-    classes = classes.view(N, K, 1).float()  # 目标类别
-    scores = scores.view(N, K, 1)
+#     classes = classes.view(N, K, 1).float()  # 目标类别
+#     scores = scores.view(N, K, 1)
 
-    bboxes = torch.cat([xs - wh[..., 0:1] * 0.5,   # left    x1
-                        ys - wh[..., 1:2] * 0.5,   # top     y1
-                        xs + wh[..., 0:1] * 0.5,   # right   x2
-                        ys + wh[..., 1:2] * 0.5],  # down    y2
-                       dim=2)
+#     bboxes = torch.cat([xs - wh[..., 0:1] * 0.5,   # left    x1
+#                         ys - wh[..., 1:2] * 0.5,   # top     y1
+#                         xs + wh[..., 0:1] * 0.5,   # right   x2
+#                         ys + wh[..., 1:2] * 0.5],  # down    y2
+#                        dim=2)
 
-    detections = torch.cat([bboxes, scores, classes], dim=2)
+#     detections = torch.cat([bboxes, scores, classes], dim=2)
 
-    return detections, inds, cls_inds_masks
+#     return detections, inds, cls_inds_masks

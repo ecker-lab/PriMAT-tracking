@@ -19,6 +19,8 @@ class ModleWithLoss(torch.nn.Module):
   
   def forward(self, batch):
     outputs = self.model(batch['input'])
+    if 'mpc' in self.model.heads:
+      outputs[-1]['pose_vec'] = self.model.pose_vec(outputs[-1]['mpc'], batch['cls_id_map'], batch['pose'])
     loss, loss_stats = self.loss(outputs, batch)
     return outputs[-1], loss, loss_stats
 

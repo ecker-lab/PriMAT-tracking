@@ -508,18 +508,15 @@ class DLASeg(nn.Module):
             self.emb_dim = 128
             # self.classifier = nn.Linear(self.emb_dim, self.nID)
             # --mine
-            self.num_classes = num_classes
+            # self.num_classes = num_classes
             self.num_poses = num_poses
-            self.cat_spec_wh = cat_spec_wh
+            self.pose_classifier = nn.Linear(self.emb_dim, self.num_poses, bias=True)
+            # self.cat_spec_wh = cat_spec_wh
             self.clsID4Pose = clsID4Pose
-            self.conf_thres = conf_thres
-            self.MONKEY = 0
-            self.pose_classifier = nn.Sequential(
-                    # nn.Linear(self.emb_dim, self.nCls, bias=True))
-                    nn.Linear(self.emb_dim, self.num_poses, bias=True))
-            # if not self.training:
-            #         # self.pose_classifier.append(nn.Sigmoid())
-            #         self.pose_classifier.append(nn.Softmax())
+            # self.conf_thres = conf_thres
+            # self.MONKEY = 0
+            # self.pose_classifier = nn.Sequential(
+            #         nn.Linear(self.emb_dim, self.num_poses, bias=True))
             self.sm = nn.Softmax(dim=1)
             # -----------------------------------------
 
@@ -537,88 +534,127 @@ class DLASeg(nn.Module):
         for head in self.heads:
             z[head] = self.__getattr__(head)(y[-1])
 
-        if not 'mpc' in self.heads:
-            return [z]
-        
-        
-        # new stuff for pose head
-        hm = z['hm'].clone().sigmoid_()
-        wh = z['wh']
-        pose_feature = z['mpc']
+        return [z]  
 
-
-        reg = z['reg']
+    def pose_vec(self, mpc, cls_id_map, target=None):
+        """ additional function to forward if mpc head is active to give feature vector for monkey detection out of feature map
         
-        # hm: [1,5,152,272] wh: [1,2,152,272] reg: [1,2,152,272] num_cls: 5 cat_spec_wh: False K: 50
-        dets, inds, cls_inds_mask = mot_decode(hm, wh, reg=reg, num_classes=self.num_classes, cat_spec_wh=self.cat_spec_wh, K=self.K)
+        Parameters
+        ----------
+        mpc : torch.tensor
+            monkey pose head feature map
+        cls_id_map : torch.tensor
+            map which entrys of feature map correspond to each specific class ID
+        target : torch.tensor / None
+            ground truth of monkey pose / None for inference
 
-        
-        cls_id_feature = collect_pose_feature(z, pose_feature, dets, inds, cls_inds_mask, self.clsID4Pose, self.num_classes, self.conf_thres)
-     
-     
-        # if no monkey detected return NiS
-        if cls_id_feature.size(0) == 0:
-            z['pose'] = torch.tensor([[0.,0.,0.,0.,1.]])
-            if hm.size(0) > 1:
-                z['pose'] = z['pose'].expand(hm.size(0), -1)
+        Returns
+        -------
+        torch.tensor
+            prediction of monkey pose
+        """
+        if target is None:
+            inds = cls_id_map
+            feat = _tranpose_and_gather_feat(mpc, inds)
+            feat = feat.squeeze(0)
         else:
-            z['pose'] = self.pose_classifier(cls_id_feature).contiguous()
+            inds = torch.where(cls_id_map == self.clsID4Pose)
+            if inds[0].shape[0] == 0:
+                stand_in = torch.tensor([0, 0, 0, 0, 1]).expand(target.numel(), 5).to(target)
+                return stand_in
+                # return torch.zeros_like(target)
+            feat = mpc[inds[0],:,inds[2],inds[3]]
+            # feat = self.emb_scale * F.normalize(feat)
+
+        pred = self.pose_classifier(feat).contiguous()
+        
+        if target is None:
+            return self.sm(pred).detach()
+        
+        # catch missing predictions for case that monkey is not in frame
+        pred_fix = torch.zeros(target.size()[0], self.num_poses).to(pred.device)
+        pred_fix += torch.tensor([0, 0, 0, 0, 1]).to(pred.device)
+        pred_fix[inds[0]] = pred
+        return pred_fix
+    
+#         # new stuff for pose head
+#         hm = z['hm'].clone().sigmoid_()
+#         wh = z['wh']
+#         pose_feature = z['mpc']
+
+
+#         reg = z['reg']
+        
+#         # hm: [1,5,152,272] wh: [1,2,152,272] reg: [1,2,152,272] num_cls: 5 cat_spec_wh: False K: 50
+#         dets, inds, cls_inds_mask = mot_decode(hm, wh, reg=reg, num_classes=self.num_classes, cat_spec_wh=self.cat_spec_wh, K=self.K)
+
+        
+#         cls_id_feature = collect_pose_feature(z, pose_feature, dets, inds, cls_inds_mask, self.clsID4Pose, self.num_classes, self.conf_thres)
      
-        if not self.training:
-                z['pose'] = self.sm(z['pose'])  
+     
+#         # if no monkey detected return NiS
+#         if cls_id_feature.size(0) == 0:
+#             z['pose'] = torch.tensor([[0.,0.,0.,0.,1.]])
+#             if hm.size(0) > 1:
+#                 z['pose'] = z['pose'].expand(hm.size(0), -1)
+#         else:
+#             z['pose'] = self.pose_classifier(cls_id_feature).contiguous()
+     
+#         if not self.training:
+#                 z['pose'] = self.sm(z['pose'])  
 
-        return [z]
-    
-    
-def collect_pose_feature(z, pose_feature, dets, inds, cls_inds_mask, clsID4Pose, num_classes, conf_thres):
-    # ----- get pose feature vector by object class
-    # get inds of MONKEY object class
-    cls_inds = inds[:,cls_inds_mask[clsID4Pose]]
-    
-    # no monkey detections?
-    if cls_inds.numel() == 0:
-        return torch.tensor([])
-    
-    # gather feats for each object class
-    # pose_feature: [1,128,152,272]
-    cls_id_feature = _tranpose_and_gather_feat(pose_feature, cls_inds)  # inds: 1×128
-    cls_id_feature = cls_id_feature.squeeze(0)  # n × FeatDim
-
-    dets = map2origCLEANUP(dets, num_classes)
-    # cls_id_feature = self.emb_scale * F.normalize(cls_id_feature, dim=1)
-
-    # filter out low confidence and non-monkey detections
-    cls_dets = dets[clsID4Pose]
-    remain_inds = cls_dets[:, 4] > conf_thres
-    
-    # only keep one per batch
-    if cls_dets.size(0) > 1:
-        _, remain_inds = torch.max(cls_dets[:, 4], dim=0)
-        remain_inds = remain_inds.reshape(1,)
-    cls_dets = cls_dets[remain_inds]
-    cls_id_feature = cls_id_feature[remain_inds]
-
-    return cls_id_feature
 
     
-def map2origCLEANUP(dets, num_classes):
-    """
-    :param dets:
-    :param num_classes:
-    :return: dict of detections(key: cls_id)
-    """
+    
+# def collect_pose_feature(z, pose_feature, dets, inds, cls_inds_mask, clsID4Pose, num_classes, conf_thres):
+#     # ----- get pose feature vector by object class
+#     # get inds of MONKEY object class
+#     cls_inds = inds[:,cls_inds_mask[clsID4Pose]]
+    
+#     # no monkey detections?
+#     if cls_inds.numel() == 0:
+#         return torch.tensor([])
+    
+#     # gather feats for each object class
+#     # pose_feature: [1,128,152,272]
+#     cls_id_feature = _tranpose_and_gather_feat(pose_feature, cls_inds)  # inds: 1×128
+#     cls_id_feature = cls_id_feature.squeeze(0)  # n × FeatDim
 
-    dets = dets.reshape(1, -1, dets.size(2))  # default: 1×128×6
-    dets = dets[0]  # 128×6
+#     dets = map2origCLEANUP(dets, num_classes)
+#     # cls_id_feature = self.emb_scale * F.normalize(cls_id_feature, dim=1)
 
-    dets_dict = {}
+#     # filter out low confidence and non-monkey detections
+#     cls_dets = dets[clsID4Pose]
+#     remain_inds = cls_dets[:, 4] > conf_thres
+    
+#     # only keep one per batch
+#     if cls_dets.size(0) > 1:
+#         _, remain_inds = torch.max(cls_dets[:, 4], dim=0)
+#         remain_inds = remain_inds.reshape(1,)
+#     cls_dets = cls_dets[remain_inds]
+#     cls_id_feature = cls_id_feature[remain_inds]
 
-    classes = dets[:, -1]
-    for cls_id in range(num_classes):
-        inds = (classes == cls_id)
-        dets_dict[cls_id] = dets[inds, :]
+#     return cls_id_feature
 
-    return dets_dict
+    
+# def map2origCLEANUP(dets, num_classes):
+#     """
+#     :param dets:
+#     :param num_classes:
+#     :return: dict of detections(key: cls_id)
+#     """
+
+#     dets = dets.reshape(1, -1, dets.size(2))  # default: 1×128×6
+#     dets = dets[0]  # 128×6
+
+#     dets_dict = {}
+
+#     classes = dets[:, -1]
+#     for cls_id in range(num_classes):
+#         inds = (classes == cls_id)
+#         dets_dict[cls_id] = dets[inds, :]
+
+#     return dets_dict
 
 
 def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_classes=5, num_poses=5, cat_spec_wh=True, clsID4Pose=0, conf_thres=0.02):

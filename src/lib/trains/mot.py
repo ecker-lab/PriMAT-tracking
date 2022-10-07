@@ -12,7 +12,7 @@ import torchvision
 from fvcore.nn import sigmoid_focal_loss_jit
 
 from models.losses import FocalLoss, TripletLoss
-from models.losses import RegL1Loss, RegLoss, NormRegL1Loss, RegWeightedL1Loss
+from models.losses import RegL1Loss, RegLoss, NormRegL1Loss, RegWeightedL1Loss, PoseLoss, ReIDLoss
 from models.decode import mot_decode
 from models.utils import _sigmoid, _tranpose_and_gather_feat
 from utils.post_process import ctdet_post_process
@@ -106,8 +106,9 @@ class McMotLoss(torch.nn.Module):
             NormRegL1Loss() if opt.norm_wh else \
                 RegWeightedL1Loss() if opt.cat_spec_wh else self.crit_reg
         if 'mpc' in opt.heads:
-            self.crit_pose = nn.CrossEntropyLoss(reduction='none') if opt.pose_loss == 'CrEn' else None
-        # self.crit_pose = F.cross_entropy()
+            # self.crit_pose = PoseLoss(pose_classifier, opt.clsID4Pose, opt.num_poses) if opt.pose_loss == 'CrEn' else None
+            self.crit_pose = torch.nn.CrossEntropyLoss(reduction='sum')
+            
         self.opt = opt
 
         self.emb_dim = opt.reid_dim
@@ -119,7 +120,7 @@ class McMotLoss(torch.nn.Module):
             self.classifiers[str(cls_id)] = nn.Linear(self.emb_dim, nID)
         
         # self.IDLoss = nn.CrossEntropyLoss(ignore_index=-1)
-        self.ce_loss = nn.CrossEntropyLoss(ignore_index=-1)
+        self.id_loss = nn.CrossEntropyLoss(ignore_index=-1)
         if opt.id_loss == 'focal':
             for cls_id, nID in self.nID_dict.items():
                 torch.nn.init.normal_(self.classifiers[str(cls_id)].weight, std=0.01)
@@ -171,7 +172,6 @@ class McMotLoss(torch.nn.Module):
                                           batch['ind'], batch['reg']) / opt.num_stacks
            
             # ----- ReID loss: only process the class requiring ReID
-            # if is irrelevant
             if opt.id_weight > 0:
                 cls_id_map = batch['cls_id_map']
                 for cls_id, id_num in self.nID_dict.items():
@@ -188,9 +188,8 @@ class McMotLoss(torch.nn.Module):
 
                     cls_id_pred = self.classifiers[str(cls_id)].forward(cls_id_head).contiguous()
 
-                    reid_loss += self.ce_loss(cls_id_pred, cls_id_target) / float(cls_id_target.nelement())
+                    reid_loss += self.id_loss(cls_id_pred, cls_id_target) / float(cls_id_target.nelement())
 
-                    # cls_id_pred = self.classifier(id_head).contiguous()
                     # if self.opt.id_loss == 'focal':
                     #     reid_target_one_hot = cls_id_pred.new_zeros((cls_id_head.size(0), self.nID)).scatter_(1,
                     #                                                                                 cls_id_target.long().view(
@@ -199,11 +198,15 @@ class McMotLoss(torch.nn.Module):
                     #                                     alpha=0.25, gamma=2.0, reduction="sum"
                     #                                     ) / cls_id_pred.size(0)
                     # else:
-                    #     reid_loss += self.ce_loss(cls_id_pred, cls_id_target)
+                    #     reid_loss += self.id_loss(cls_id_pred, cls_id_target)
             # # if multiple outputs for one frame, expand target to be matched against all
-            # batch['pose'] = batch['pose'].expand(1, output['pose'].size(0))
+
             if 'mpc' in opt.heads:
-                pose_loss += self.crit_pose(output['pose'].to(batch['pose'].device), batch['pose']) / opt.num_stacks
+                # pose_loss += self.crit_pose(
+                #     output['mpc'], batch['cls_id_map'],
+                #     batch['pose']) / opt.num_stacks
+                pose_loss += self.crit_pose(output['pose_vec'], batch['pose']) / batch['pose'].numel()
+
 
         det_loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + opt.off_weight * off_loss
 
