@@ -292,3 +292,61 @@ class TripletLoss(nn.Module):
         if self.mutual:
             return loss, dist
         return loss
+
+import math
+class PoseLoss(nn.Module):
+  def __init__(self, pose_classifier, clsID4Pose, num_poses):
+    super(PoseLoss, self).__init__()
+    self.pose_classifier = pose_classifier
+    self.clsID4Pose = clsID4Pose
+    self.emb_scale = math.sqrt(2) * math.log(num_poses - 1)
+    self.num_poses = num_poses
+    # self.pose_loss = nn.CrossEntropyLoss(reduction='mean')
+  
+  def forward(self, pred, target):#(self, output, cls_id_map, target):
+    # inds = torch.where(cls_id_map == self.clsID4Pose)
+    # if inds[0].shape[0] == 0:
+    #   return F.cross_entropy(torch.zeros_like(target), target, reduction='mean')
+    
+    # pose_head = output[inds[0],:,inds[2],inds[3]]
+    # pose_head = self.emb_scale * F.normalize(pose_head)
+  
+    # pred = self.pose_classifier(pose_head).contiguous()
+  
+    # # catch missing predictions for case that monkey is not in frame
+    # pred_fix = torch.empty(target.size()[0], self.num_poses).to(pred.device)
+    # pred_fix += torch.tensor([0, 0, 0, 0, 1]).to(pred.device)
+    # pred_fix[inds[0]] = pred
+  
+    # # pick arg maxs
+    # pred = pred_fix
+    return F.cross_entropy(pred.reshape(-1,5), target.reshape(-1), reduction='sum')
+  
+  
+  
+    # id_head = _tranpose_and_gather_feat(output['id'], batch['ind'])
+    # id_head = id_head[batch['reg_mask'] > 0].contiguous()
+    # id_head = self.emb_scale * F.normalize(id_head)
+    # id_target = batch['ids'][batch['reg_mask'] > 0]
+
+    # cls_id_pred = self.classifier(id_head).contiguous()
+    # if self.opt.id_loss == 'focal':
+    #     id_target_one_hot = cls_id_pred.new_zeros((id_head.size(0), self.nID)).scatter_(1,
+    #                                                                                   id_target.long().view(
+    #                                                                                       -1, 1), 1)
+    #     id_loss += sigmoid_focal_loss_jit(cls_id_pred, id_target_one_hot,
+    #                                       alpha=0.25, gamma=2.0, reduction="sum"
+    #                                       ) / cls_id_pred.size(0)
+    # else:
+    #     id_loss += self.IDLoss(cls_id_pred, id_target)
+  
+  
+  
+  
+  
+  
+class ReIDLoss(nn.Module):
+  def __init__(self):
+    pass
+  def forward(self, output, mask, ind, target):
+    pass

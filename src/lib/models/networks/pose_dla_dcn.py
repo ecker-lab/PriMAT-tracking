@@ -508,18 +508,15 @@ class DLASeg(nn.Module):
             self.emb_dim = 128
             # self.classifier = nn.Linear(self.emb_dim, self.nID)
             # --mine
-            self.num_classes = num_classes
+            # self.num_classes = num_classes
             self.num_poses = num_poses
-            self.cat_spec_wh = cat_spec_wh
+            self.pose_classifier = nn.Linear(self.emb_dim, self.num_poses, bias=True)
+            # self.cat_spec_wh = cat_spec_wh
             self.clsID4Pose = clsID4Pose
-            self.conf_thres = conf_thres
-            self.MONKEY = 0
-            self.pose_classifier = nn.Sequential(
-                    # nn.Linear(self.emb_dim, self.nCls, bias=True))
-                    nn.Linear(self.emb_dim, self.num_poses, bias=True))
-            # if not self.training:
-            #         # self.pose_classifier.append(nn.Sigmoid())
-            #         self.pose_classifier.append(nn.Softmax())
+            # self.conf_thres = conf_thres
+            # self.MONKEY = 0
+            # self.pose_classifier = nn.Sequential(
+            #         nn.Linear(self.emb_dim, self.num_poses, bias=True))
             self.sm = nn.Softmax(dim=1)
             # -----------------------------------------
 
@@ -537,210 +534,127 @@ class DLASeg(nn.Module):
         for head in self.heads:
             z[head] = self.__getattr__(head)(y[-1])
 
-        if not 'mpc' in self.heads:
-            return [z]
-        # new stuff for pose head -- richard
-        # -----------------------------------------
-        hm = z['hm'].clone().sigmoid_()
-        wh = z['wh']
-        pose_feature = z['mpc']
+        return [z]  
 
-
-        reg = z['reg']
+    def pose_vec(self, mpc, cls_id_map, target=None):
+        """ additional function to forward if mpc head is active to give feature vector for monkey detection out of feature map
         
-        # ltrb vs. catspec
-        # print(hm.shape, wh.shape,reg.shape,self.num_classes, self.cat_spec_wh, self.K)
-        # [1,5,152,272] [1,2,152,272] [1,2,152,272] 5 False 50
-        dets, inds, cls_inds_mask = mot_decode(hm, wh, reg=reg, num_classes=self.num_classes, cat_spec_wh=self.cat_spec_wh, K=self.K)
-        #inds_masks [2, 50]
-        #cls_inds_masks[cls_id] [2, 50]
-        # print(f'dets {dets.shape}')# [1, 50, 6]
-        # print(dets[0,0,:])
-        # print(f'inds {inds.shape}')# [1, 50]
-        # print(f'cls_inds_mask {cls_inds_mask.shape}')# [5, 1, 50] -- without n in mot decode: [5, 50]
-        
+        Parameters
+        ----------
+        mpc : torch.tensor
+            monkey pose head feature map
+        cls_id_map : torch.tensor
+            map which entrys of feature map correspond to each specific class ID
+        target : torch.tensor / None
+            ground truth of monkey pose / None for inference
 
-        # mc stuff ---------------------------------------
-        # ----- get ReID feature vector by object class
-        # get inds of MONKEY object class
-        #print(f'cls_inds_mask {cls_inds_mask.shape}') # [5, 1, 50]
-        #print(f'inds {inds.shape}') #[1, 50]
-        # print(cls_inds_mask[self.clsID4Pose].shape)#[50]
-        # print('----')
-        # print('batch size: ',hm.size(0))
-        # print(inds.shape)
-        # print(cls_inds_mask[self.clsID4Pose].shape)
-        cls_inds = inds[:,cls_inds_mask[self.clsID4Pose]]
-        if cls_inds.numel() == 0:
-            # z['pose'] =  torch.tensor([[0.]], dtype=torch.int64)
-            z['pose'] = torch.tensor([[0.,0.,0.,0.,1.]])
-            if hm.size(0) > 1:
-                z['pose'] = z['pose'].expand(hm.size(0), -1)
-            return [z]
-        # print(inds, cls_inds_mask)
-        # print(f'cls_inds {cls_inds.shape}')#[4]
-        # print(cls_inds.size())
-        # gather feats for each object class
-        # print(f'pose_feature {pose_feature.shape}') # [1,128,152,272]
-        cls_id_feature = _tranpose_and_gather_feat(pose_feature, cls_inds)  # inds: 1×128
-        # print(f'before: cls_id_feature {cls_id_feature.shape}') # [1,0,128]
-        # cls_id_feature = cls_id_feature[:,0,:] # doesn't work because shape 1,0,128 can't select 0 from 0
-        cls_id_feature = cls_id_feature.squeeze(0)  # n × FeatDim
-        # print(f'after: cls_id_feature {cls_id_feature.shape}') # [0,128]
-        # cls_id_feature = cls_id_feature.contiguous()
-        # cls_id_feature = cls_id_feature.detach().cpu().numpy()
-
-        dets = map2origCLEANUP(dets, self.num_classes)
-        # cls_id_feature = self.emb_scale * F.normalize(cls_id_feature, dim=1)
-
-        # filter out low confidence detections
-        cls_dets = dets[self.clsID4Pose]
-        # print(f'cls_dets {cls_dets.shape}') #[50, 6]
-        remain_inds = cls_dets[:, 4] > self.conf_thres
-        # only keep one per batch
-        if cls_dets.size(0) > 1:
-            _, remain_inds = torch.max(cls_dets[:, 4], dim=0)
-            # print('==============================')
-            remain_inds = remain_inds.reshape(1,)
-            # print(remain_inds)
-            # print('==============================')
-        # print(f'remain_inds {remain_inds.shape}') #[50] -> with map2origCLEANUP: [1,]
-        cls_dets = cls_dets[remain_inds]
-        # print(f'cls_dets {cls_dets.shape}') # [50, 6] -> with map2origCLEANUP: [1,6]
-        # print(f'cls_id_feature {cls_id_feature.shape}') # [0,128] || [1, 128] || [2, 128]
-        cls_id_feature = cls_id_feature[remain_inds]# [1, 128]
-        # print(f'cls_id_feature {cls_id_feature.shape}')
-
-        # ----------------------------------------
-
-        # if no monkey detected return NiS
-        if cls_id_feature.size(0) is 0:
-            z['pose'] = torch.tensor([[0.,0.,0.,0.,1.]])
+        Returns
+        -------
+        torch.tensor
+            prediction of monkey pose
+        """
+        if target is None:
+            inds = cls_id_map
+            feat = _tranpose_and_gather_feat(mpc, inds)
+            feat = feat.squeeze(0)
         else:
-            z['pose'] = self.pose_classifier(cls_id_feature).contiguous()
-        #print("z['class'] shape: ", z['class'].shape)
-        #print(z['class'])
-        if not self.training:
-                z['pose'] = self.sm(z['pose'])
-        # -----------------------------------------    
+            inds = torch.where(cls_id_map == self.clsID4Pose)
+            if inds[0].shape[0] == 0:
+                stand_in = torch.tensor([0, 0, 0, 0, 1]).expand(target.numel(), 5).to(target)
+                return stand_in
+                # return torch.zeros_like(target)
+            feat = mpc[inds[0],:,inds[2],inds[3]]
+            # feat = self.emb_scale * F.normalize(feat)
 
-        return [z]
+        pred = self.pose_classifier(feat).contiguous()
+        
+        if target is None:
+            return self.sm(pred).detach()
+        
+        # catch missing predictions for case that monkey is not in frame
+        pred_fix = torch.zeros(target.size()[0], self.num_poses).to(pred.device)
+        pred_fix += torch.tensor([0, 0, 0, 0, 1]).to(pred.device)
+        pred_fix[inds[0]] = pred
+        return pred_fix
     
-def map2origCLEANUP(dets, num_classes):
-    """
-    :param dets:
-    :param num_classes:
-    :return: dict of detections(key: cls_id)
-    """
-
-    # dets = dets.detach().cpu().numpy()
-    dets = dets.reshape(1, -1, dets.size(2))  # default: 1×128×6
-    dets = dets[0]  # 128×6
-
-    dets_dict = {}
-
-    classes = dets[:, -1]
-    for cls_id in range(num_classes):
-        inds = (classes == cls_id)
-        dets_dict[cls_id] = dets[inds, :]
-
-    return dets_dict
-# # function from Richard
-# class DLASegClass(nn.Module):
-#     def __init__(self, base_name, heads, pretrained, down_ratio, final_kernel,
-#                  last_level, head_conv, out_channel=0):
-#         super(DLASegClass, self).__init__()
-#         assert down_ratio in [2, 4, 8, 16]
-#         self.first_level = int(np.log2(down_ratio))
-#         self.last_level = last_level
-#         self.base = globals()[base_name](pretrained=pretrained)
-#         channels = self.base.channels
-#         scales = [2 ** i for i in range(len(channels[self.first_level:]))]
-#         self.dla_up = DLAUp(self.first_level, channels[self.first_level:], scales)
-
-#         if out_channel == 0:
-#             out_channel = channels[self.first_level]
-
-#         self.ida_up = IDAUp(out_channel, channels[self.first_level:self.last_level], 
-#                             [2 ** i for i in range(self.last_level - self.first_level)])
-        
-#         self.heads = heads
-#         for head in self.heads:
-#             classes = self.heads[head]
-#             if head_conv > 0:
-#               fc = nn.Sequential(
-#                   nn.Conv2d(channels[self.first_level], head_conv,
-#                     kernel_size=3, padding=1, bias=True),
-#                   nn.ReLU(inplace=True),
-#                   nn.Conv2d(head_conv, classes, 
-#                     kernel_size=final_kernel, stride=1, 
-#                     padding=final_kernel // 2, bias=True))
-#               if 'hm' in head:
-#                 fc[-1].bias.data.fill_(-2.19)
-#               else:
-#                 fill_fc_weights(fc)
-#             else:
-#               fc = nn.Conv2d(channels[self.first_level], classes, 
-#                   kernel_size=final_kernel, stride=1, 
-#                   padding=final_kernel // 2, bias=True)
-#               if 'hm' in head:
-#                 fc.bias.data.fill_(-2.19)
-#               else:
-#                 fill_fc_weights(fc)
-#             self.__setattr__(head, fc)
-        
-#         self.ltrb = True
-#         self.K = 50 # number of detections per frame
-#         self.conf_thres = 0.02 # confidence threshold for heatmap detections
-#         self.nID = 68 # number of individuals in total 
-#         self.emb_scale = math.sqrt(2) * math.log(self.nID - 1)
-#         self.emb_dim = 128
-#         self.classifier = nn.Linear(self.emb_dim, self.nID)
-        
-            
-
-#     def forward(self, x):
-#         x = self.base(x)
-#         x = self.dla_up(x)
-
-#         y = []
-#         for i in range(self.last_level - self.first_level):
-#             y.append(x[i].clone())
-#         self.ida_up(y, 0, len(y))
-
-#         z = {}
-#         for head in self.heads:
-#             z[head] = self.__getattr__(head)(y[-1])
-            
-            
+#         # new stuff for pose head
 #         hm = z['hm'].clone().sigmoid_()
 #         wh = z['wh']
-#         id_feature = z['id']
+#         pose_feature = z['mpc']
 
 
 #         reg = z['reg']
         
-#         dets, inds = mot_decode(hm, wh, reg=reg, ltrb=self.ltrb, K=self.K)
+#         # hm: [1,5,152,272] wh: [1,2,152,272] reg: [1,2,152,272] num_cls: 5 cat_spec_wh: False K: 50
+#         dets, inds, cls_inds_mask = mot_decode(hm, wh, reg=reg, num_classes=self.num_classes, cat_spec_wh=self.cat_spec_wh, K=self.K)
+
         
-#         #print("dets shape: ", dets.shape) #[1, 50, 6]
-#         #print("inds shape: ", inds.shape) #[1, 50]
-#         #print("confidence thresholds: ", dets[:, :, 4])
-#         test = dets[:, :, 4] > self.conf_thres 
-#         #print("test shape: ", test.shape) #[1, 50]
-        
-#         remain_inds = inds[:, test.squeeze()]
-        
-#         #print("remain_inds shape: ", remain_inds.shape) #[2]
-#         id_feature = _tranpose_and_gather_feat(id_feature, remain_inds)
-#         id_feature = id_feature[:,0,:].contiguous()
-#         id_feature = self.emb_scale * F.normalize(id_feature)
-#         #print("id_feature shape: ", id_feature.shape) #[1, 50, 128]
-        
-#         z['class'] = self.classifier(id_feature).contiguous()
-#         #print("z['class'] shape: ", z['class'].shape)
-#         #print(z['class'])
-        
-#         return [z]
+#         cls_id_feature = collect_pose_feature(z, pose_feature, dets, inds, cls_inds_mask, self.clsID4Pose, self.num_classes, self.conf_thres)
+     
+     
+#         # if no monkey detected return NiS
+#         if cls_id_feature.size(0) == 0:
+#             z['pose'] = torch.tensor([[0.,0.,0.,0.,1.]])
+#             if hm.size(0) > 1:
+#                 z['pose'] = z['pose'].expand(hm.size(0), -1)
+#         else:
+#             z['pose'] = self.pose_classifier(cls_id_feature).contiguous()
+     
+#         if not self.training:
+#                 z['pose'] = self.sm(z['pose'])  
+
+
+    
+    
+# def collect_pose_feature(z, pose_feature, dets, inds, cls_inds_mask, clsID4Pose, num_classes, conf_thres):
+#     # ----- get pose feature vector by object class
+#     # get inds of MONKEY object class
+#     cls_inds = inds[:,cls_inds_mask[clsID4Pose]]
+    
+#     # no monkey detections?
+#     if cls_inds.numel() == 0:
+#         return torch.tensor([])
+    
+#     # gather feats for each object class
+#     # pose_feature: [1,128,152,272]
+#     cls_id_feature = _tranpose_and_gather_feat(pose_feature, cls_inds)  # inds: 1×128
+#     cls_id_feature = cls_id_feature.squeeze(0)  # n × FeatDim
+
+#     dets = map2origCLEANUP(dets, num_classes)
+#     # cls_id_feature = self.emb_scale * F.normalize(cls_id_feature, dim=1)
+
+#     # filter out low confidence and non-monkey detections
+#     cls_dets = dets[clsID4Pose]
+#     remain_inds = cls_dets[:, 4] > conf_thres
+    
+#     # only keep one per batch
+#     if cls_dets.size(0) > 1:
+#         _, remain_inds = torch.max(cls_dets[:, 4], dim=0)
+#         remain_inds = remain_inds.reshape(1,)
+#     cls_dets = cls_dets[remain_inds]
+#     cls_id_feature = cls_id_feature[remain_inds]
+
+#     return cls_id_feature
+
+    
+# def map2origCLEANUP(dets, num_classes):
+#     """
+#     :param dets:
+#     :param num_classes:
+#     :return: dict of detections(key: cls_id)
+#     """
+
+#     dets = dets.reshape(1, -1, dets.size(2))  # default: 1×128×6
+#     dets = dets[0]  # 128×6
+
+#     dets_dict = {}
+
+#     classes = dets[:, -1]
+#     for cls_id in range(num_classes):
+#         inds = (classes == cls_id)
+#         dets_dict[cls_id] = dets[inds, :]
+
+#     return dets_dict
 
 
 def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_classes=5, num_poses=5, cat_spec_wh=True, clsID4Pose=0, conf_thres=0.02):

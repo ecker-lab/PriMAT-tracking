@@ -166,8 +166,9 @@ def eval_seq(opt, dataloader, data_type, result_filename, pose_filename=None, sa
                     #     online_pose_scores.append(pose_score)
                     #     online_pose.append(pose)
         if 'mpc' in opt.heads:
+            print(pose_scores)
             pose = torch.max(pose_scores, 1)[1].squeeze().cpu().numpy()
-            pose_scores = pose_scores.squeeze().cpu().numpy()
+            pose_scores = pose_scores.cpu().numpy()
             # print(f'pose score {pose_scores} pose {pose}')
             online_pose_scores.append(pose_scores)
             online_pose.append(pose)
