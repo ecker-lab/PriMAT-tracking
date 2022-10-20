@@ -17,6 +17,9 @@ from logger import Logger
 from datasets.jde import JointDataset
 from trains.mot import MotTrainer
 
+import torch.nn.functional as F
+from models.decode import mot_decode
+
 
 def main(opt):
     torch.manual_seed(opt.seed)
@@ -83,10 +86,50 @@ def main(opt):
         for k in batch:
             if k != 'meta':
                 batch[k] = batch[k].to(device=opt.device, non_blocking=True)
-        outputs = model(batch['input'])
-        output = outputs[-1]
+        output = model(batch['input'])[-1]
+        if 'mpc' in model.heads:
+            output['pose_vec'] = model.pose_vec(output['mpc'], batch['cls_id_map'], batch['pose'])
+        
+        # with torch.no_grad():
+        #     hm = output['hm'].sigmoid_()
+        #     #hm = hm * self.prediction_hm
+        #     wh = output['wh']
+        #     id_feature = output['id']
+        #     # L2 normalize the reid feature vector
+        #     id_feature = F.normalize(id_feature, dim=1)
+
+        #     reg = output['reg'] if opt.reg_offset else None
+
+        #     dets, inds, cls_inds_mask = mot_decode(heatmap=hm,
+        #                                            wh=wh,
+        #                                            reg=reg,
+        #                                            num_classes=opt.num_classes,
+        #                                            cat_spec_wh=opt.cat_spec_wh,
+        #                                            K=opt.K)
+        #     if 'mpc' in opt.heads:
+        #         # # if cls_inds.numel() == 0:
+        #         # #     output['pose'] = torch.tensor([])
+        #         # # else:
+        #         # mnk_inds = inds[:, cls_inds_mask[opt.clsID4Pose]]
+        #         # #
+        #         # # remain_inds = dets[self.opt.clsID4Pose][:, 4] > self.opt.conf_thres
+        #         # # print(mnk_inds.numel(), mnk_inds.size(), remain_inds.size(), remain_inds)
+        #         # # mnk_inds = mnk_inds[remain_inds[0:mnk_inds.numel()]]
+        #         # #
+        #         # output['pose'] = model.pose_vec(output['mpc'], mnk_inds)
+        #         # # 
+        #         # pose_score = output['pose']
+                
+        #         # cls_dets = dets[opt.clsID4Pose]
+        #         # remain_inds = cls_dets[:, 4] > opt.conf_thres
+        #         # pose_score = pose_score[remain_inds]
+        #         # if pose_score.size() == 0:
+        #         #     pred.append(np.array([0,0,0,0,1]))
+        #         # else:
+        #         #     pred.append(np.argmax(pose_score.cpu().detach().numpy()))
+        # 
         gt.append(batch['pose'].cpu().detach().numpy())
-        pred.append(np.argmax(output['pose'].cpu().detach().numpy()))
+        pred.append(np.argmax(output['pose_vec'].cpu().detach().numpy()))
        
        
     class_names = ['walking', 'sitting', 'standing2legs', 'standing4legs', 'NiS']
@@ -122,7 +165,7 @@ def main(opt):
     ## Display the visualization of the Confusion Matrix.
     # plt.show()
     fig = ax.get_figure()
-    fig.savefig('cmat_val_classic-style.png')
+    fig.savefig('cmat_val_classic-style-new-head.png')
 
 if __name__ == '__main__':
     torch.cuda.set_device(0)
