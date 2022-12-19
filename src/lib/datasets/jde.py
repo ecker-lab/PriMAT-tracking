@@ -374,7 +374,6 @@ class JointDataset(LoadImagesAndLabels):  # for training
     default_resolution = [1088, 608]
     mean = None
     std = None
-    # num_classes = 5
 
     def __init__(self, opt, root, paths, img_size=(1088, 608), augment=False, transforms=None):
         self.opt = opt
@@ -393,11 +392,20 @@ class JointDataset(LoadImagesAndLabels):  # for training
         if self.opt.use_pose:
             self.num_poses = len(opt.mpc_class_ids.split(','))
             self.pose_names = opt.mpc_class_names.split(',')
+            
+        # added for cat_spec_wh
+        if self.opt.cat_spec_wh:
+            self.wh_classes = self.num_classes
+        else:
+            self.wh_classes = 1
 
         for ds, path in paths.items():
             with open(path, 'r') as file:
+                # each 'ds' corresponds to one image/label file
                 self.img_files[ds] = file.readlines()
+                # for each line of one file: 1. build complete path 2. strip '\n' character 3. put back into list -> at position 'ds' are all images from one of these list files
                 self.img_files[ds] = [osp.join(root, x.strip()) for x in self.img_files[ds]]
+                # get rid of empty lines
                 self.img_files[ds] = list(filter(lambda x: len(x) > 0, self.img_files[ds]))
 
             self.label_files[ds] = [
@@ -411,10 +419,12 @@ class JointDataset(LoadImagesAndLabels):  # for training
                     self.pose_labels[ds] = [x.rstrip() for x in file.readlines()]
                     self.pose_labels[ds] = list(filter(lambda x: len(x) > 0, self.pose_labels[ds]))
 
-
+        # read in GT labels
+        # for each file of directories
         for ds, label_paths in self.label_files.items():
             # max_index = -1
             max_ids_dict = defaultdict(int)
+            # for each label file
             for lp in label_paths:
                 lb = np.loadtxt(lp)
                 if len(lb) < 1:
@@ -487,9 +497,9 @@ class JointDataset(LoadImagesAndLabels):  # for training
         num_objs = labels.shape[0]
         hm = np.zeros((self.num_classes, output_h, output_w), dtype=np.float32)
         if self.opt.ltrb:
-            wh = np.zeros((self.max_objs, 4), dtype=np.float32)
+            wh = np.zeros((self.max_objs, 4 * self.wh_classes), dtype=np.float32)
         else:
-            wh = np.zeros((self.max_objs, 2), dtype=np.float32)# mcmot uses this one, without if/else
+            wh = np.zeros((self.max_objs, 2 * self.wh_classes), dtype=np.float32)# mcmot uses this one, without if/else
         reg = np.zeros((self.max_objs, 2), dtype=np.float32)
         ind = np.zeros((self.max_objs, ), dtype=np.int64)
         reg_mask = np.zeros((self.max_objs, ), dtype=np.uint8)
@@ -532,10 +542,10 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 ct_int = ct.astype(np.int32)
                 draw_gaussian(hm[cls_id], ct_int, radius)
                 if self.opt.ltrb:
-                    wh[k] = ct[0] - bbox_amodal[0], ct[1] - bbox_amodal[1], \
+                    wh[k, (cls_id*2,cls_id*2+1) if self.wh_classes > 1 else (0,1)] = ct[0] - bbox_amodal[0], ct[1] - bbox_amodal[1], \
                             bbox_amodal[2] - ct[0], bbox_amodal[3] - ct[1]
                 else:# only else for mcmot
-                    wh[k] = 1. * w, 1. * h
+                    wh[k, (cls_id*2,cls_id*2+1) if self.wh_classes > 1 else (0,1)] = 1. * w, 1. * h
                 ind[k] = ct_int[1] * output_w + ct_int[0]
                 reg[k] = ct - ct_int
                 reg_mask[k] = 1
@@ -549,6 +559,8 @@ class JointDataset(LoadImagesAndLabels):  # for training
 
                 # bbox_xys[k] = bbox_xy
             # pose = self.pose_labels[k][files_index]
+        # for DEREK
+        # pose = torch.tensor(labels[:,1], dtype=int)
 
         if self.opt.use_pose:
             ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask, 'pose': pose, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
