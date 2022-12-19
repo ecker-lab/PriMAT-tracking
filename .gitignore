@@ -5,3 +5,4 @@
 /docker
 __pycache__/
 *.code-workspace
+/testing
