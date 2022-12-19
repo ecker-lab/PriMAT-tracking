@@ -10,12 +10,14 @@ def _sigmoid(x):
   return y
 
 def _gather_feat(feat, ind, mask=None):
-    #        [4,250,1], [4,50]
-    dim  = feat.size(2)# 1
+    #        [1, 41344, 4], [4,50]
+    dim  = feat.size(2)# 4
+    #           [4, 50, ' ']       [4,           50,         '4']
     ind  = ind.unsqueeze(2).expand(ind.size(0), ind.size(1), dim)
-    #       [4, 50, 1]      [4, 50, 1]
+    #[1, 50, 4] = [1, 41344, 4]      [4, 50, 4]
     feat = feat.gather(1, ind)# 1 <- axis along wich to index, ind <- indicies of elements to gather
-    #[4, 50, 1]
+    # -> fetures are row wise feature vectors of the wh-matrix; 1 row is corresponding to one detection position in the image; 50 rows for 50 possible detections
+    #mask is None!
     if mask is not None:
         mask = mask.unsqueeze(2).expand_as(feat)
         feat = feat[mask]
@@ -23,10 +25,11 @@ def _gather_feat(feat, ind, mask=None):
     return feat
 
 def _tranpose_and_gather_feat(feat, ind):
-    feat = feat.permute(0, 2, 3, 1).contiguous()#[4,152,272,128]
-    feat = feat.view(feat.size(0), -1, feat.size(3))#[4,41344,128]
-    # print(f'feat {feat.size()} ind {ind.size()}')
-    feat = _gather_feat(feat, ind)#[4,41344,128], [1,1]
+    # feat (batch x c x h x w)
+    # ind (batch, det)
+    feat = feat.permute(0, 2, 3, 1).contiguous()#[batch, h, w, c]
+    feat = feat.view(feat.size(0), -1, feat.size(3))#[batch, HxW, c]
+    feat = _gather_feat(feat, ind)#[1, 41344, 4], [4, 50]
     return feat
 
 def flip_tensor(x):

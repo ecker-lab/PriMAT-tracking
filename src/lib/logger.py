@@ -90,12 +90,14 @@ class Logger(object):
       
       self.writer.add_figure(tag, fig, step)
 
-  def graph_summary(self, model, images):
+  def graph_summary(self, model, images=None):
     if USE_TENSORBOARD:
-      from torchsummary import summary
+      # from torchsummary import summary
       # summary(model, input_size=in_size)
-
-      self.writer.add_graph(model, images)
+      if images is not None:
+        self.writer.add_graph(model, input_to_model=images)
+      else:
+        self.writer.add_graph(model)
 
 def save_opt(opt):
   time_str = time.strftime('%Y-%m-%d-%H-%M')

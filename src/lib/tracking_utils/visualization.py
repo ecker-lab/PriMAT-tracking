@@ -195,9 +195,21 @@ def plot_tracks(image,
         # print(f'pose: {pose}, score: {pose_scores}')
         # pose = pose.squeeze().numpy()
         # pose_scores = pose_scores.squeeze().numpy()
-    if not pose is None:
-        order = np.argsort(pose_scores)[::-1]
-        pose_scores = pose_scores[order]
+    if pose is not None:
+        print(pose_scores.shape)
+        if pose_scores.shape[0] > 1:
+            order = np.argsort(pose_scores, axis=1)[::-1]
+            po = []
+            for ps, o in zip(pose_scores, order):
+                po.append(ps[o])
+            pose_scores = np.array(po)
+            print(pose_scores)
+        else:
+            pose_scores = pose_scores.squeeze()
+            pose = [pose]
+            order = np.argsort(pose_scores)[::-1].squeeze()
+            print(order, order.shape)
+            pose_scores = pose_scores[order]
     # ---------------
 
     # top_view = np.zeros([im_w, im_w, 3], dtype=np.uint8) + 255
@@ -205,7 +217,7 @@ def plot_tracks(image,
     text_scale = max(1.0, image.shape[1] / 1200.)  # 1600.
     # text_thickness = 1 if text_scale > 1.1 else 1
     text_thickness = 2  # 自定义ID文本线宽
-    line_thickness = max(line_thickness, int(image.shape[1] / 500.))
+    line_thickness = max(1, int(image.shape[1] / 500. * line_thickness))
 
     radius = max(5, int(im_w / 140.))
 
@@ -242,7 +254,7 @@ def plot_tracks(image,
             # if obj_id is monkey
             if cls_id == 0 and not pose is None:
                 cv2.putText(img,
-                    class_names[cls_id]+' : '+pose_names[pose],
+                    class_names[cls_id]+' : '+pose_names[pose[i]],
                     (int(x1), int(y1)),
                     cv2.FONT_HERSHEY_PLAIN,
                     text_scale,
@@ -271,27 +283,27 @@ def plot_tracks(image,
 
     # added for pose
     # print monkey scores in top right corner
-    if not pose is None:
-        text = "Pose\n{}\n{}\n{}\n{}\n{}".format(pose_names[order[0]], pose_names[order[1]], pose_names[order[2]], pose_names[order[3]], pose_names[order[4]])
-        text2 = "Score\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}".format(pose_scores[0], pose_scores[1], pose_scores[2], pose_scores[3], pose_scores[4])
-        # y0, dy = (im_w - int(15 * text_scale), 20)
-        uv_top_left = np.array([im_w-250, 20], dtype=float)
-        assert uv_top_left.shape == (2,)
+    # if not pose is None:
+    #     text = "Pose\n{}\n{}\n{}\n{}\n{}".format(pose_names[order[0]], pose_names[order[1]], pose_names[order[2]], pose_names[order[3]], pose_names[order[4]])
+    #     text2 = "Score\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}\n{:.2f}".format(pose_scores[0], pose_scores[1], pose_scores[2], pose_scores[3], pose_scores[4])
+    #     # y0, dy = (im_w - int(15 * text_scale), 20)
+    #     uv_top_left = np.array([im_w-250, 20], dtype=float)
+    #     assert uv_top_left.shape == (2,)
 
-        for i, (line, line2) in enumerate(zip(text.split('\n'), text2.split('\n'))):
-            (w, h), _ = cv2.getTextSize(
-                text=line,
-                fontFace=cv2.FONT_HERSHEY_PLAIN,
-                fontScale=text_scale,
-                thickness=text_thickness,
-            )
-            uv_bottom_left_i = uv_top_left + [0, h]
-            org = tuple(uv_bottom_left_i.astype(int))
-            org2 = tuple((uv_bottom_left_i+[150,0]).astype(int))
-            cv2.putText(img, line, org, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
-            cv2.putText(img, line2, org2, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
-            line_spacing=1.5
-            uv_top_left += [0, h * line_spacing]
-    # ---------------
+    #     for i, (line, line2) in enumerate(zip(text.split('\n'), text2.split('\n'))):
+    #         (w, h), _ = cv2.getTextSize(
+    #             text=line,
+    #             fontFace=cv2.FONT_HERSHEY_PLAIN,
+    #             fontScale=text_scale,
+    #             thickness=text_thickness,
+    #         )
+    #         uv_bottom_left_i = uv_top_left + [0, h]
+    #         org = tuple(uv_bottom_left_i.astype(int))
+    #         org2 = tuple((uv_bottom_left_i+[150,0]).astype(int))
+    #         cv2.putText(img, line, org, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
+    #         cv2.putText(img, line2, org2, cv2.FONT_HERSHEY_PLAIN, 1, text_thickness)
+    #         line_spacing=1.5
+    #         uv_top_left += [0, h * line_spacing]
+    # # ---------------
 
     return img

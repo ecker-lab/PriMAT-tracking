@@ -61,6 +61,8 @@ def main(opt):
     else:
         optimizer = torch.optim.Adam(model.parameters(), opt.lr)
 
+    # logger.graph_summary(model)
+
     start_epoch = 0
 
     # Get dataloader
@@ -74,7 +76,7 @@ def main(opt):
         drop_last=True
     )
 
-    # images, _ = next(iter(train_loader))
+    # images = next(iter(train_loader))['input']
     # logger.graph_summary(model, images)
 
     if opt.trainval:

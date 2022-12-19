@@ -770,10 +770,8 @@ class MCJDETracker(object):
 
             reg = output['reg'] if self.opt.reg_offset else None
             
-            if 'mpc' in self.opt.heads:
-                pose_score = output['pose']
             # detection decoding
-            # print(hm.shape, wh.shape,reg.shape,self.opt.num_classes, self.opt.cat_spec_wh, self.opt.K)
+            # hm, wh, reg, self.opt.num_classes, self.opt.cat_spec_wh, self.opt.K
             #   [1,5,152,272] [1,2,152,272] [1,2,152,272] 5 False 50
             dets, inds, cls_inds_mask = mot_decode(heatmap=hm,
                                                    wh=wh,
@@ -781,24 +779,14 @@ class MCJDETracker(object):
                                                    num_classes=self.opt.num_classes,
                                                    cat_spec_wh=self.opt.cat_spec_wh,
                                                    K=self.opt.K)
-            # id_feature = _tranpose_and_gather_feat(id_feature, inds)
             # dets: [1,50,6]
+            
             # ----- get ReID feature vector by object class
             cls_id_feats = []  # topK feature vectors of each object class
             for cls_id in range(self.opt.num_classes):  # cls_id starts from 0
-                # get inds of each object class
-                # print(f'cls_inds_mask {cls_inds_mask.shape}')# [5,1,50] -- without N in mot_decode: [5,50]
                 # print(f'inds {inds.shape}')# [1,50]                     -- [1,50]
-                # print(f'cls_id {cls_id}')# 0                            -- 0
-                # cls_inds = inds[cls_inds_mask[cls_id]]
-                # [2]
                 #id_feature: [1,128,152,272]
                 cls_inds = inds[:, cls_inds_mask[cls_id]]
-                # 
-                # print('---------------')
-                # print(f'cls_inds {cls_inds.shape}')#                    -- [1,2]
-                # print(f'id_feature {id_feature.shape}')#                -- [1,128,152,272]
-                # print('---------------')
 
 
                 # gather feats for each object class
@@ -807,17 +795,44 @@ class MCJDETracker(object):
                 cls_id_feature = cls_id_feature.cpu().numpy()
                 cls_id_feats.append(cls_id_feature)
 
+                    
+        if 'mpc' in self.opt.heads:
+            # if cls_inds.numel() == 0:
+            #     output['pose'] = torch.tensor([])
+            # else:
+            mnk_inds = inds[:, cls_inds_mask[self.opt.clsID4Pose]]
+            #
+            # remain_inds = dets[self.opt.clsID4Pose][:, 4] > self.opt.conf_thres
+            # print(mnk_inds.numel(), mnk_inds.size(), remain_inds.size(), remain_inds)
+            # mnk_inds = mnk_inds[remain_inds[0:mnk_inds.numel()]]
+            #
+            output['pose'] = self.model.pose_vec(output['mpc'], mnk_inds)
+            # 
+            pose_score = output['pose']
+
+                        
+
         # translate and scale
         dets = map2orig(dets, h_out, w_out, height, width, self.opt.num_classes)
+        # FIXME from here on everything is detached and numpy and not torch.tensor!
+
 
         # ----- parse each object class
         for cls_id in range(self.opt.num_classes):  # cls_id从0开始
             cls_dets = dets[cls_id]
 
             # low threshold (0.01) to allow many potential detections
-            remain_inds = cls_dets[:, 4] > self.opt.conf_thres 
+            remain_inds = cls_dets[:, 4] > self.opt.conf_thres
             cls_dets = cls_dets[remain_inds]
             cls_id_feature = cls_id_feats[cls_id][remain_inds]
+            
+            
+            if 'mpc' in self.opt.heads and cls_id == self.opt.clsID4Pose:
+                #     if cls_dets.shape[0] > 1:
+                #         _, remain_inds = np.max(cls_dets[:, 4], axis=0)
+                #         remain_inds = remain_inds.reshape(1,)
+                pose_score = pose_score[remain_inds]
+
 
             if len(cls_dets) > 0:
                 '''Detections'''

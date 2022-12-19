@@ -46,6 +46,7 @@ def _neg_loss(pred, gt):
       pred (batch x c x h x w)
       gt_regr (batch x c x h x w)
   '''
+  # select locations where gt is 1 as positive cases and where gt < 1 as negative cases
   pos_inds = gt.eq(1).float()
   neg_inds = gt.lt(1).float()
 
@@ -53,6 +54,7 @@ def _neg_loss(pred, gt):
 
   loss = 0
 
+  # positive loss is prediction times negated predictions square at the position where gt is positive
   pos_loss = torch.log(pred) * torch.pow(1 - pred, 2) * pos_inds
   neg_loss = torch.log(1 - pred) * torch.pow(pred, 2) * neg_weights * neg_inds
 
@@ -143,9 +145,7 @@ class RegL1Loss(nn.Module):
   def forward(self, output, mask, ind, target):
     pred = _tranpose_and_gather_feat(output, ind)
     mask = mask.unsqueeze(2).expand_as(pred).float()
-    # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
-    # FIXME which loss is better? activated one is mcmot other is richards
-    loss = F.l1_loss(pred * mask, target * mask, size_average=False)
+    loss = F.l1_loss(pred * mask, target * mask, reduction='sum')#size_average=False)
     # loss = F.l1_loss(pred * mask, target * mask, reduction='sum')
     #
     loss = loss / (mask.sum() + 1e-4)
@@ -170,10 +170,20 @@ class RegWeightedL1Loss(nn.Module):
     super(RegWeightedL1Loss, self).__init__()
   
   def forward(self, output, mask, ind, target):
+    # output (batch x c x h x w)
+    # ind (batch, det)
+    # (1 x 50 x 4) = (1 x 4 x 152 x 272) (1, 50)
     pred = _tranpose_and_gather_feat(output, ind)
-    mask = mask.float()
+    # (1 x 50 x 4) = (1 x 50)
+    mask = mask.unsqueeze(2).expand_as(pred).float()
     # loss = F.l1_loss(pred * mask, target * mask, reduction='elementwise_mean')
-    loss = F.l1_loss(pred * mask, target * mask, size_average=False)
+    '''
+      pred (batch x det x 2c)
+      gt (batch x det x 2c)
+      maske (batch x det)
+    '''
+    # FIXME try weight loss!!! doesn't have any weights right now!
+    loss = F.l1_loss(pred * mask, target * mask, reduction='sum')#size_average=False)
     loss = loss / (mask.sum() + 1e-4)
     return loss
 
@@ -282,3 +292,61 @@ class TripletLoss(nn.Module):
         if self.mutual:
             return loss, dist
         return loss
+
+import math
+class PoseLoss(nn.Module):
+  def __init__(self, pose_classifier, clsID4Pose, num_poses):
+    super(PoseLoss, self).__init__()
+    self.pose_classifier = pose_classifier
+    self.clsID4Pose = clsID4Pose
+    self.emb_scale = math.sqrt(2) * math.log(num_poses - 1)
+    self.num_poses = num_poses
+    # self.pose_loss = nn.CrossEntropyLoss(reduction='mean')
+  
+  def forward(self, pred, target):#(self, output, cls_id_map, target):
+    # inds = torch.where(cls_id_map == self.clsID4Pose)
+    # if inds[0].shape[0] == 0:
+    #   return F.cross_entropy(torch.zeros_like(target), target, reduction='mean')
+    
+    # pose_head = output[inds[0],:,inds[2],inds[3]]
+    # pose_head = self.emb_scale * F.normalize(pose_head)
+  
+    # pred = self.pose_classifier(pose_head).contiguous()
+  
+    # # catch missing predictions for case that monkey is not in frame
+    # pred_fix = torch.empty(target.size()[0], self.num_poses).to(pred.device)
+    # pred_fix += torch.tensor([0, 0, 0, 0, 1]).to(pred.device)
+    # pred_fix[inds[0]] = pred
+  
+    # # pick arg maxs
+    # pred = pred_fix
+    return F.cross_entropy(pred.reshape(-1,5), target.reshape(-1), reduction='sum')
+  
+  
+  
+    # id_head = _tranpose_and_gather_feat(output['id'], batch['ind'])
+    # id_head = id_head[batch['reg_mask'] > 0].contiguous()
+    # id_head = self.emb_scale * F.normalize(id_head)
+    # id_target = batch['ids'][batch['reg_mask'] > 0]
+
+    # cls_id_pred = self.classifier(id_head).contiguous()
+    # if self.opt.id_loss == 'focal':
+    #     id_target_one_hot = cls_id_pred.new_zeros((id_head.size(0), self.nID)).scatter_(1,
+    #                                                                                   id_target.long().view(
+    #                                                                                       -1, 1), 1)
+    #     id_loss += sigmoid_focal_loss_jit(cls_id_pred, id_target_one_hot,
+    #                                       alpha=0.25, gamma=2.0, reduction="sum"
+    #                                       ) / cls_id_pred.size(0)
+    # else:
+    #     id_loss += self.IDLoss(cls_id_pred, id_target)
+  
+  
+  
+  
+  
+  
+class ReIDLoss(nn.Module):
+  def __init__(self):
+    pass
+  def forward(self, output, mask, ind, target):
+    pass
