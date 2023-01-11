@@ -272,7 +272,24 @@ def letterbox(img, height=608, width=1088,
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # padded rectangular
     return img, ratio, dw, dh
 
+# TODO What is the difference to the above version that is a part of fairmot?
+def letterbox_image(image, size):
+    '''resize image with unchanged aspect ratio using padding'''
+    iw, ih = image.shape[0:2][::-1]
+    w, h = size
+    scale = min(w/iw, h/ih)
+    nw = int(iw*scale)
+    nh = int(ih*scale)
+    image = cv2.resize(image, (nw,nh), interpolation=cv2.INTER_CUBIC)
+    new_image = np.zeros((size[1], size[0], 3), np.uint8)
+    new_image.fill(128)
+    dx = (w-nw)//2
+    dy = (h-nh)//2
+    new_image[dy:dy+nh, dx:dx+nw,:] = image
+    return new_image
 
+
+#FIXME can happen that BB's are cut out completely -> can lead to errors with pose classification right now!!!
 def random_affine(img, targets=None, degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-2, 2),
                   borderValue=(127.5, 127.5, 127.5)):
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
@@ -480,9 +497,6 @@ class JointDataset(LoadImagesAndLabels):  # for training
         label_path = self.label_files[ds][files_index - start_index]
 
         # added for pose
-        if self.opt.use_pose:
-            pose = self.pose_labels[ds][files_index - start_index]
-            pose = torch.tensor(int(pose))
 
         imgs, labels, img_path, (input_h, input_w) = self.get_data(img_path, label_path)
         for i, _ in enumerate(labels):
@@ -559,7 +573,7 @@ class JointDataset(LoadImagesAndLabels):  # for training
 
                 # bbox_xys[k] = bbox_xy
             # pose = self.pose_labels[k][files_index]
-        # for DEREK
+        #FIXME for DEREK
         # pose = torch.tensor(labels[:,1], dtype=int)
 
         if self.opt.use_pose:

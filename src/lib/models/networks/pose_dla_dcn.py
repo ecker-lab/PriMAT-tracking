@@ -562,6 +562,7 @@ class DLASeg(nn.Module):
             if inds[0].shape[0] == 0:
                 stand_in = torch.tensor([0, 0, 0, 0, 1]).expand(target.numel(), 5).to(target)
                 return stand_in
+                #FIXME could work for Richard!
                 # return torch.zeros_like(target)
             feat = mpc[inds[0],:,inds[2],inds[3]]
             # feat = self.emb_scale * F.normalize(feat)

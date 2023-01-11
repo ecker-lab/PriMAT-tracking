@@ -25,6 +25,7 @@ from models.utils import _tranpose_and_gather_feat
 from collections import defaultdict
 from .basetrack import BaseTrack, MCBaseTrack, TrackState
 
+#TODO can probably be deleted?
 # reset track ID from MCMOT added
 class STrack(BaseTrack):
     shared_kalman = KalmanFilter()
@@ -989,7 +990,7 @@ class MCJDETracker(object):
         else:
             return output_tracks_dict
 
-    
+#TODO can be deleted   
 class JDETrackerOld(JDETracker):
     def __init__(self, opt, frame_rate=30):
         super().__init__(opt, frame_rate=frame_rate)

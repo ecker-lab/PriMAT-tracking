@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import argparse
 import os
+# TODO delete these???
 import sys
 
 class opts(object):
@@ -30,6 +31,7 @@ class opts(object):
                              help='-1 for CPU, use comma for multiple gpus')
     self.parser.add_argument('--num_workers', type=int, default=8,
                              help='dataloader threads. 0 for single-thread.')
+    # TODO what does that do?
     self.parser.add_argument('--not_cuda_benchmark', action='store_true',
                              help='disable when the input size is not fixed.')
     # TODO used in inference and pose test 
