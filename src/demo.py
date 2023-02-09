@@ -1,25 +1,26 @@
 from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import _init_paths
 
 import logging
 import os
 import os.path as osp
-from opts import opts
-from tracking_utils.utils import mkdir_if_missing
-from tracking_utils.log import logger
+
 import datasets.jde as datasets
-from track import eval_seq
-
 from logger import save_opt
+from opts import opts
+from tracking_utils.log import logger
+from tracking_utils.utils import init_seeds, mkdir_if_missing
 
+
+from track import eval_seq
 
 logger.setLevel(logging.INFO)
 
 
 def demo(opt):
+    init_seeds(opt.seed)
+    
     result_root = opt.output_root if opt.output_root != '' else '.'
     mkdir_if_missing(result_root)
 
@@ -29,20 +30,17 @@ def demo(opt):
     logger.info('Starting tracking...')
     dataloader = datasets.LoadVideo(opt.input_video, opt.img_size)
     result_filename = os.path.join(result_root, 'results.txt')
-    pose_filename = None
-    if 'mpc' in opt.heads:
-        pose_filename = os.path.join(result_root, 'poses.txt')
-    frame_rate = dataloader.frame_rate
 
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
-    # TODO what does show_image do?
-    eval_seq(opt, dataloader, opt.task, result_filename, pose_filename=pose_filename,
-            save_dir=frame_dir, show_image=False, frame_rate=frame_rate,
+
+    eval_seq(opt, dataloader, opt.task, result_filename,save_dir=frame_dir,
+            show_image=False, frame_rate=dataloader.frame_rate,
             use_cuda=opt.gpus!=[-1])
 
     if opt.output_format == 'video':
         output_video_path = osp.join(result_root, opt.output_name + '.mp4')
-        cmd_str = 'ffmpeg -y -f image2 -i {}/%05d.jpg -b:v 5000k -c:v mpeg4 -vf fps={} {}'.format(osp.join(result_root, 'frame'), dataloader.frame_rate, output_video_path)
+        cmd_str = 'ffmpeg -framerate {} -y -f image2 -i {}/%05d.jpg -b:v 5000k -c:v libx264 -vf format=yuv420p {}'.format(
+            dataloader.frame_rate, osp.join(result_root, 'frame'), output_video_path)
         os.system(cmd_str)
 
 

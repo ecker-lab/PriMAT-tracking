@@ -4,8 +4,7 @@ from __future__ import print_function
 
 import argparse
 import os
-# TODO delete these???
-import sys
+
 
 class opts(object):
   def __init__(self):
@@ -31,12 +30,10 @@ class opts(object):
                              help='-1 for CPU, use comma for multiple gpus')
     self.parser.add_argument('--num_workers', type=int, default=8,
                              help='dataloader threads. 0 for single-thread.')
-    # TODO what does that do?
     self.parser.add_argument('--not_cuda_benchmark', action='store_true',
                              help='disable when the input size is not fixed.')
-    # TODO used in inference and pose test 
     self.parser.add_argument('--seed', type=int, default=317, 
-                             help='random seed') # from CornerNet
+                             help='Setting seed for all random generators in use.')
 
     # log
     self.parser.add_argument('--print_iter', type=int, default=0, 
@@ -45,6 +42,7 @@ class opts(object):
                              help='not display time during training.')
     self.parser.add_argument('--metric', default='loss', 
                              help='main metric to save best model')
+    # FIXME currently unused
     self.parser.add_argument('--vis_thresh', type=float, default=0.5,
                              help='visualization threshold.')
     
@@ -60,22 +58,20 @@ class opts(object):
                                   '256 for resnets and 256 for dla.')
     self.parser.add_argument('--down_ratio', type=int, default=4,
                              help='output stride. Currently only supports 4.')
+    self.parser.add_argument('--reid_dim', type=int, default=128,
+                             help='feature dim for reid')
     
     # additional heads
-    self.parser.add_argument('--head_mpc', type=int, default=-1,
-                             help='channels for mpc head'
-                                  '0 for no mpc layer'
-                                  '-1 for default setting: '
-                                  '256 for resnets and 256 for dla.')
+    self.parser.add_argument('--gc_dim', type=int, default=128,
+                             help='feature dim for gc')
 
     # input
-    self.parser.add_argument('--input_res', type=int, default=-1, 
-                             help='input height and width. -1 for default from '
-                             'dataset. Will be overriden by input_h | input_w')
-    self.parser.add_argument('--input_h', type=int, default=-1, 
-                             help='input height. -1 for default from dataset.')
-    self.parser.add_argument('--input_w', type=int, default=-1, 
-                             help='input width. -1 for default from dataset.')
+    self.parser.add_argument('--input_h', type=int, default=608, 
+                             help='input height.')
+    self.parser.add_argument('--input_w', type=int, default=1088,
+                             help='input width.')
+    self.parser.add_argument('--ltrb', default=False,
+                             help='regress left, top, right, bottom of bbox')
     
     # train
     self.parser.add_argument('--lr', type=float, default=1e-4,
@@ -103,27 +99,25 @@ class opts(object):
                              help='max number of output objects.') 
     self.parser.add_argument('--not_prefetch_test', action='store_true',
                              help='not use parallal data pre-processing.')
-    self.parser.add_argument('--fix_res', action='store_true',
-                             help='fix testing resolution or keep '
-                                  'the original resolution')
-    self.parser.add_argument('--keep_res', action='store_true',
-                             help='keep the original resolution'
-                                  ' during validation.')
-    
+
     # output manipulation
     self.parser.add_argument('--line_thickness', type=int, default=1,
                              help='manipulate thickness of bb lines during inference.')
-    
+    self.parser.add_argument('--id_inline', action='store_true',
+                             help='Wheter the tracking ID shall be printed next to the class name or above.')
+    self.parser.add_argument('--debug_info', action='store_true',
+                             help='Wheter scores of gc-labels shall be printed in top right corner.')
+
     # tracking
     self.parser.add_argument('--conf_thres', type=float, default=0.02, help='confidence threshold for tracking')
-    self.parser.add_argument('--proportion_emb', type=float, default=2, help='which proportion should the embedding get in the similarity measurement; sim = proportion_emb * emb_sim + iou_sim')
+    self.parser.add_argument('--proportion_iou', type=float, default=0.5, help='which proportion should iou similarity get over cosine_similarity of ReID features; sim = proportion_iou * iou_sim + (1-proportion_iou) * emb_sim')
     self.parser.add_argument('--emb_sim_thres', type=float, default=0.6, help='embedding similarity threshold of new detection with detections from prior frames')
     self.parser.add_argument('--iou_sim_thres', type=float, default=0.5, help='iou similarity threshold of new detection with detections from prior frames')
     self.parser.add_argument('--det_thres', type=float, default=0.7, help='thresh for initializing new track')
-    # are we using non-max-supression?
-    #self.parser.add_argument('--nms_thres', type=float, default=0.4, help='iou thresh for nms')
+    self.parser.add_argument('--new_overlap_thres', type=float, default=0.7, help='if current bb is overlapping more than this threshold with existing bb, no new track is started')    # are we using non-max-supression?
     self.parser.add_argument('--track_buffer', type=int, default=3, help='tracking buffer, in seconds how long a track should be kept active after last detection.')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
+
     # I/O-things
     self.parser.add_argument('--input_video', type=str,
                              default='../videos/MOT16-03.mp4',
@@ -136,30 +130,24 @@ class opts(object):
     self.parser.add_argument('--data_cfg', type=str,
                              default='../src/lib/cfg/data.json',
                              help='load data from cfg')
-    self.parser.add_argument('--data_dir', type=str, default='/user/vogg/local_datasets/')
+    self.parser.add_argument('--data_dir', type=str, default='../local_datasets/', help='set path to a dataset you want to use')
 
-    # mc
-    self.parser.add_argument('--reid_cls_ids',
-                                 default='0,1,2,3,4',  # '0,1,2,3,4'
-                                 help="ID's of object classes.")  # the object classes need to do reid
+    # multi-class
     self.parser.add_argument('--reid_cls_names',
                                 default='monkey,patch,kong,branch,XBI',
                                 help='Define the names for the tracked classes.')
 
-    # mpc head
-    self.parser.add_argument('--use_pose', action='store_true',
-                                help='Enable training / inference for pose head.')
-    self.parser.add_argument('--mpc_class_ids',
-                                default='0,1,2,3,4',
-                                help="ID's of monkey poses.")
-    self.parser.add_argument('--mpc_class_names',
+    # gc head (general classification)
+    self.parser.add_argument('--use_gc', action='store_true',
+                                help='Enable training / inference for general classification head.')
+    self.parser.add_argument('--gc_cls_names',
                                 default='walking,sitting,standing2legs,standing4legs,NiS',
-                                help='Define the names for the possible monkey poses.')
-    self.parser.add_argument('--clsID4Pose',
+                                help='Define the names for the possible classification targets.')
+    self.parser.add_argument('--clsID4GC',
                                  default=0,
-                                 help="Object class ID for which the pose shall be estimated.")
-    self.parser.add_argument('--train_only_pose', action='store_true',
-                              help='Freeze all weights except pose head + classification.')
+                                 help="Object class ID for which the classification shall be computed.")
+    self.parser.add_argument('--train_only_gc', action='store_true',
+                              help='Freeze all weights except general classification head + classification.')
 
     # loss
     self.parser.add_argument('--mse_loss', action='store_true',
@@ -177,13 +165,9 @@ class opts(object):
                              help='reid loss: ce | focal')
     self.parser.add_argument('--id_weight', type=float, default=1,
                              help='loss weight for id')
-    self.parser.add_argument('--reid_dim', type=int, default=128,
-                             help='feature dim for reid')
-    self.parser.add_argument('--ltrb', default=False,#changed!!!! #FIXME
-                             help='regress left, top, right, bottom of bbox')
     self.parser.add_argument('--multi_loss', default='uncertainty', help='multi_task loss: uncertainty | fix')
-    self.parser.add_argument('--pose_loss', default='CrEn',
-                             help='pose loss: CrEn | none')
+    self.parser.add_argument('--gc_loss', default='CrEn',
+                             help='gc loss: CrEn | none')
     # additional head settings
     self.parser.add_argument('--norm_wh', action='store_true',
                              help='L1(\hat(y) / y, 1) or L1(\hat(y), y)')
@@ -198,6 +182,7 @@ class opts(object):
     
     self.parser.add_argument('-f')
 
+
   def parse(self, args=''):
     if args == '':
       opt = self.parser.parse_args()
@@ -207,14 +192,11 @@ class opts(object):
     opt.gpus = [int(gpu) for gpu in opt.gpus.split(',')]
     opt.lr_step = [int(i) for i in opt.lr_step.split(',')]
 
-    opt.fix_res = not opt.keep_res
-    print('Fix size testing.' if opt.fix_res else 'Keep resolution testing.')
     opt.reg_offset = not opt.not_reg_offset
 
     if opt.head_conv == -1: # init default head_conv
       opt.head_conv = 256 if 'dla' in opt.arch else 256
-    if opt.head_mpc == -1:
-      opt.head_mpc = 128
+
     opt.pad = 31
     opt.num_stacks = 1
 
@@ -243,35 +225,18 @@ class opts(object):
     return opt
 
   def update_dataset_info_and_set_heads(self, opt, dataset):
-    # TODO in MCMOT default_resolution is default_input_wh
     input_h, input_w = dataset.default_resolution
-    # input_w, input_h = dataset.default_input_wh
     opt.mean, opt.std = dataset.mean, dataset.std
     opt.num_classes = dataset.num_classes
     opt.class_names = dataset.class_names
-    # opt.clsID4Pose = filter(lambda x: opt.class_names[x] == 'monkey', range(len(opt.class_names)))
-    if opt.use_pose:
-      opt.pose_names = dataset.pose_names
-      opt.num_poses = dataset.num_poses
-      if len(opt.pose_names) > opt.num_poses:
-        print('[Err]: configuration conflict of pose_names and num_poses!')
-        return
+    if opt.use_gc:
+      opt.gc_cls_names = dataset.gc_cls_names
+      opt.num_gc_cls = dataset.num_gc_cls
 
-    for reid_id in opt.reid_cls_ids.split(','):
-      if int(reid_id) > opt.num_classes - 1:
-        print('[Err]: configuration conflict of reid_cls_ids and num_classes!')
-        return
+    opt.reid_cls_ids = list(range(opt.num_classes))
 
-    # FIXME do we need all of this???
-    # input_h(w): opt.input_h overrides opt.input_res overrides dataset default
-    input_h = opt.input_res if opt.input_res > 0 else input_h
-    input_w = opt.input_res if opt.input_res > 0 else input_w
-    opt.input_h = opt.input_h if opt.input_h > 0 else input_h
-    opt.input_w = opt.input_w if opt.input_w > 0 else input_w
     opt.output_h = opt.input_h // opt.down_ratio
     opt.output_w = opt.input_w // opt.down_ratio
-    opt.input_res = max(opt.input_h, opt.input_w)
-    opt.output_res = max(opt.output_h, opt.output_w)
 
     if opt.task == 'mot':
       opt.heads = {'hm': opt.num_classes,
@@ -281,18 +246,13 @@ class opts(object):
     else:
       assert 0, 'task not defined!'
     
-    if opt.use_pose:
-      opt.heads.update({'mpc': opt.head_mpc})
-    # FIXME what is up here???
+    if opt.use_gc:
+      opt.heads.update({'gc': opt.gc_dim})
     if opt.reg_offset:
       opt.heads.update({'reg': 2})
-    # opt.nID = dataset.nID
     if opt.id_weight > 0:
       opt.nID_dict = dataset.nID_dict
-    #opt.img_size = (608, 1088) #Hoch, also have to change it in datasets/jde.py (Load Video)
-    # opt.img_size = (1088, 608) #Quer
-    #opt.img_size = (864, 480)
-    #opt.img_size = (320, 576)
+
     
     print('heads', opt.heads)
     return opt
@@ -300,28 +260,27 @@ class opts(object):
   def init(self, args=''):
     opt = self.parse(args)
     default_dataset_info = {
-            'mot': {'default_resolution': [608, 1088],#[opt.input_wh[1], opt.input_wh[0]],
-                    'num_classes': len(opt.reid_cls_ids.split(',')),
+            'mot': {'default_resolution': [opt.input_h, opt.input_w],
+                    'num_classes': len(opt.reid_cls_names.split(',')),
                     'class_names': opt.reid_cls_names.split(','),
                     'mean': [0.408, 0.447, 0.470],
                     'std': [0.289, 0.274, 0.278],
                     'dataset': 'jde',
-                    'nID': 14455,
                     'nID_dict': {}},
     }
-    if opt.use_pose:
+    if opt.use_gc:
       default_dataset_info['mot'].update({
-                      'num_poses': len(opt.mpc_class_ids.split(',')),
-                      'pose_names': opt.mpc_class_names.split(',')
+                      'num_gc_cls': len(opt.gc_cls_names.split(',')),
+                      'gc_cls_names': opt.gc_cls_names.split(',')
       })
 
     class Struct:
       def __init__(self, entries):
         for k, v in entries.items():
           self.__setattr__(k, v)
-    h_w = default_dataset_info[opt.task]['default_resolution']
-    opt.img_size = (h_w[1], h_w[0])
-    print('Net input image size: {:d}×{:d}'.format(h_w[1], h_w[0]))
+    h, w = default_dataset_info[opt.task]['default_resolution']
+    opt.img_size = (w, h)
+    print('Net input image size: {:d}×{:d}'.format(w, h))
     dataset = Struct(default_dataset_info[opt.task])
     opt.dataset = dataset.dataset
     opt = self.update_dataset_info_and_set_heads(opt, dataset)

@@ -1,15 +1,14 @@
 from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import time
+
+import numpy as np
 import torch
-from progress.bar import Bar
 from models.data_parallel import DataParallel
+from progress.bar import Bar
+from sklearn.metrics import confusion_matrix
 from utils.utils import AverageMeter
 
-from sklearn.metrics import confusion_matrix
-import numpy as np
 
 class ModleWithLoss(torch.nn.Module):
   def __init__(self, model, loss):
@@ -19,8 +18,8 @@ class ModleWithLoss(torch.nn.Module):
   
   def forward(self, batch):
     outputs = self.model(batch['input'])
-    if 'mpc' in self.model.heads:
-      outputs[-1]['pose_vec'] = self.model.pose_vec(outputs[-1]['mpc'], batch['cls_id_map'], batch['pose'])
+    if 'gc' in self.model.heads:
+      outputs[-1]['gc_pred'] = self.model.gc_lin(outputs[-1]['gc'], batch['cls_id_map'], batch['gc'])
     loss, loss_stats = self.loss(outputs, batch)
     return outputs[-1], loss, loss_stats
 
@@ -77,16 +76,16 @@ class BaseTrainer(object):
 
       output, loss, loss_stats = model_with_loss(batch)
       loss = loss.mean()
-      # TODO freeze all weitghts except pose
+      
       if phase == 'train':
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
       # added for eval
       else:
-        if 'pose' in self.loss_stats:
-          gt.append(batch['pose'].cpu().detach().numpy())
-          pred.append(np.argmax(output['pose'].cpu().detach().numpy()))
+        if 'gc' in self.loss_stats:
+          gt.append(batch['gc'].cpu().detach().numpy())
+          pred.append(np.argmax(output['gc'].cpu().detach().numpy()))
 
       batch_time.update(time.time() - end)
       end = time.time()
@@ -106,7 +105,7 @@ class BaseTrainer(object):
           print('{}/{}| {}'.format(opt.task, opt.exp_id, Bar.suffix)) 
       else:
         bar.next()
-      
+
       if opt.test:
         self.save_result(output, batch, results)
       del output, loss, loss_stats, batch
@@ -114,7 +113,7 @@ class BaseTrainer(object):
     bar.finish()
     ret = {k: v.avg for k, v in avg_loss_stats.items()}
     ret['time'] = bar.elapsed_td.total_seconds() / 60.
-    if not phase == 'train' and 'pose_loss' in self.loss_stats:
+    if not phase == 'train' and 'gc_loss' in self.loss_stats:
       return ret, results, confusion_matrix(gt, pred)
     return ret, results
 

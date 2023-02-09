@@ -1,25 +1,16 @@
 from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
-import os
-import math
 import logging
-import numpy as np
+import math
 from os.path import join
 
+import numpy as np
 import torch
-from torch import int16, nn
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
-
 from dcn_v2 import DCN
-
-
-from models.decode import mot_decode
-from models.utils import _tranpose_and_gather_feat
-
-
+from torch import int16, nn
+from ..own_blocks import General_Classification
 
 BN_MOMENTUM = 0.1
 logger = logging.getLogger(__name__)
@@ -432,8 +423,8 @@ class Interpolate(nn.Module):
 
 class DLASeg(nn.Module):
     def __init__(self, base_name, heads, pretrained, down_ratio, final_kernel,
-                 last_level, head_conv, out_channel=0, num_classes=5, num_poses=5, cat_spec_wh=True,
-                 clsID4Pose=0, conf_thres=0.02):
+                 last_level, head_conv, out_channel=0, num_gc_cls=5,
+                 clsID4GC=0):
         super(DLASeg, self).__init__()
         assert down_ratio in [2, 4, 8, 16]
         self.first_level = int(np.log2(down_ratio))
@@ -452,73 +443,31 @@ class DLASeg(nn.Module):
         self.heads = heads
         for head in self.heads:
             classes = self.heads[head]
-            # if 'mpc' in head:
-            #     # in shape [4, 60, 152, 272] -> [batch, channel, (image_size)]
-            #     in_size = channels[self.first_level]*152*272
-            #     out_size = classes
-            #     fc = nn.Sequential(
-            #         nn.Flatten(),
-            #         nn.Linear(in_size, out_size, bias=True)
-
-            #         # 2,480,640 -> 1,240,320
-            #         nn.Linear(in_size, in_size//2, bias=True)
-            #         # 1,240,320 -> 620,160
-            #         nn.Linear(in_size//2, in_size//4, bias=True),
-            #         # 620,160 -> 310,080
-            #         nn.Linear(in_size//4, in_size//8, bias=True),
-            #         # 310,080 -> 5
-            #         nn.Linear(in_size//8, out_size, bias=True)
-
-            #         nn.AvgPool2d(kernel_size=3, stride=2, padding=0),
-            #         nn.Linear(, out_size, bias=True)
-            #     if not self.training:
-            #         fc.append(nn.Sigmoid())
-
-            # elif head_conv > 0:
             if head_conv > 0:
-              fc = nn.Sequential(
-                  nn.Conv2d(channels[self.first_level], head_conv,
-                    kernel_size=3, padding=1, bias=True),
-                  nn.ReLU(inplace=True),
-                  nn.Conv2d(head_conv, classes, 
-                    kernel_size=final_kernel, stride=1, 
-                    padding=final_kernel // 2, bias=True))
-              if 'hm' in head:
-                fc[-1].bias.data.fill_(-2.19)
-              else:
-                fill_fc_weights(fc)
+                fc = nn.Sequential(
+                    nn.Conv2d(channels[self.first_level], head_conv,
+                        kernel_size=3, padding=1, bias=True),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(head_conv, classes,
+                        kernel_size=final_kernel, stride=1,
+                        padding=final_kernel // 2, bias=True))
+                if 'hm' in head:
+                    fc[-1].bias.data.fill_(-2.19)
+                else:
+                    fill_fc_weights(fc)
             else:
-              fc = nn.Conv2d(channels[self.first_level], classes, 
-                  kernel_size=final_kernel, stride=1, 
-                  padding=final_kernel // 2, bias=True)
-              if 'hm' in head:
-                fc.bias.data.fill_(-2.19)
-              else:
-                fill_fc_weights(fc)
+                fc = nn.Conv2d(channels[self.first_level], classes,
+                    kernel_size=final_kernel, stride=1,
+                    padding=final_kernel // 2, bias=True)
+                if 'hm' in head:
+                    fc.bias.data.fill_(-2.19)
+                else:
+                    fill_fc_weights(fc)
             self.__setattr__(head, fc)
 
-
-        # new stuff for pose head --richard
-        # -----------------------------------------
-        if 'mpc' in self.heads:
-            self.K = 50 # number of detections per frame
-            # self.conf_thres = 0.02 # confidence threshold for heatmap detections
-            self.nCls = self.heads['mpc']
-            self.emb_scale = math.sqrt(2) * math.log(self.nCls - 1)
-            self.emb_dim = 128
-            # self.classifier = nn.Linear(self.emb_dim, self.nID)
-            # --mine
-            # self.num_classes = num_classes
-            self.num_poses = num_poses
-            self.pose_classifier = nn.Linear(self.emb_dim, self.num_poses, bias=True)
-            # self.cat_spec_wh = cat_spec_wh
-            self.clsID4Pose = clsID4Pose
-            # self.conf_thres = conf_thres
-            # self.MONKEY = 0
-            # self.pose_classifier = nn.Sequential(
-            #         nn.Linear(self.emb_dim, self.num_poses, bias=True))
-            self.sm = nn.Softmax(dim=1)
-            # -----------------------------------------
+        # TODO can this be added to the general forward? probably....
+        if 'gc' in self.heads:
+            self.gc_lin = General_Classification(num_gc_cls, clsID4GC, self.heads['gc'])
 
 
     def forward(self, x):
@@ -536,139 +485,18 @@ class DLASeg(nn.Module):
 
         return [z]  
 
-    def pose_vec(self, mpc, cls_id_map, target=None):
-        """ additional function to forward if mpc head is active to give feature vector for monkey detection out of feature map
-        
-        Parameters
-        ----------
-        mpc : torch.tensor
-            monkey pose head feature map
-        cls_id_map : torch.tensor
-            map which entrys of feature map correspond to each specific class ID
-        target : torch.tensor / None
-            ground truth of monkey pose / None for inference
-
-        Returns
-        -------
-        torch.tensor
-            prediction of monkey pose
-        """
-        if target is None:
-            inds = cls_id_map
-            feat = _tranpose_and_gather_feat(mpc, inds)
-            feat = feat.squeeze(0)
-        else:
-            inds = torch.where(cls_id_map == self.clsID4Pose)
-            if inds[0].shape[0] == 0:
-                stand_in = torch.tensor([0, 0, 0, 0, 1]).expand(target.numel(), 5).to(target)
-                return stand_in
-                #FIXME could work for Richard!
-                # return torch.zeros_like(target)
-            feat = mpc[inds[0],:,inds[2],inds[3]]
-            # feat = self.emb_scale * F.normalize(feat)
-
-        pred = self.pose_classifier(feat).contiguous()
-        
-        if target is None:
-            return self.sm(pred).detach()
-        
-        # catch missing predictions for case that monkey is not in frame
-        pred_fix = torch.zeros(target.size()[0], self.num_poses).to(pred.device)
-        pred_fix += torch.tensor([0, 0, 0, 0, 1]).to(pred.device)
-        pred_fix[inds[0]] = pred
-        return pred_fix
-    
-#         # new stuff for pose head
-#         hm = z['hm'].clone().sigmoid_()
-#         wh = z['wh']
-#         pose_feature = z['mpc']
 
 
-#         reg = z['reg']
-        
-#         # hm: [1,5,152,272] wh: [1,2,152,272] reg: [1,2,152,272] num_cls: 5 cat_spec_wh: False K: 50
-#         dets, inds, cls_inds_mask = mot_decode(hm, wh, reg=reg, num_classes=self.num_classes, cat_spec_wh=self.cat_spec_wh, K=self.K)
 
-        
-#         cls_id_feature = collect_pose_feature(z, pose_feature, dets, inds, cls_inds_mask, self.clsID4Pose, self.num_classes, self.conf_thres)
-     
-     
-#         # if no monkey detected return NiS
-#         if cls_id_feature.size(0) == 0:
-#             z['pose'] = torch.tensor([[0.,0.,0.,0.,1.]])
-#             if hm.size(0) > 1:
-#                 z['pose'] = z['pose'].expand(hm.size(0), -1)
-#         else:
-#             z['pose'] = self.pose_classifier(cls_id_feature).contiguous()
-     
-#         if not self.training:
-#                 z['pose'] = self.sm(z['pose'])  
-
-
-    
-    
-# def collect_pose_feature(z, pose_feature, dets, inds, cls_inds_mask, clsID4Pose, num_classes, conf_thres):
-#     # ----- get pose feature vector by object class
-#     # get inds of MONKEY object class
-#     cls_inds = inds[:,cls_inds_mask[clsID4Pose]]
-    
-#     # no monkey detections?
-#     if cls_inds.numel() == 0:
-#         return torch.tensor([])
-    
-#     # gather feats for each object class
-#     # pose_feature: [1,128,152,272]
-#     cls_id_feature = _tranpose_and_gather_feat(pose_feature, cls_inds)  # inds: 1×128
-#     cls_id_feature = cls_id_feature.squeeze(0)  # n × FeatDim
-
-#     dets = map2origCLEANUP(dets, num_classes)
-#     # cls_id_feature = self.emb_scale * F.normalize(cls_id_feature, dim=1)
-
-#     # filter out low confidence and non-monkey detections
-#     cls_dets = dets[clsID4Pose]
-#     remain_inds = cls_dets[:, 4] > conf_thres
-    
-#     # only keep one per batch
-#     if cls_dets.size(0) > 1:
-#         _, remain_inds = torch.max(cls_dets[:, 4], dim=0)
-#         remain_inds = remain_inds.reshape(1,)
-#     cls_dets = cls_dets[remain_inds]
-#     cls_id_feature = cls_id_feature[remain_inds]
-
-#     return cls_id_feature
-
-    
-# def map2origCLEANUP(dets, num_classes):
-#     """
-#     :param dets:
-#     :param num_classes:
-#     :return: dict of detections(key: cls_id)
-#     """
-
-#     dets = dets.reshape(1, -1, dets.size(2))  # default: 1×128×6
-#     dets = dets[0]  # 128×6
-
-#     dets_dict = {}
-
-#     classes = dets[:, -1]
-#     for cls_id in range(num_classes):
-#         inds = (classes == cls_id)
-#         dets_dict[cls_id] = dets[inds, :]
-
-#     return dets_dict
-
-
-def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_classes=5, num_poses=5, cat_spec_wh=True, clsID4Pose=0, conf_thres=0.02):
+def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_gc_cls=5, clsID4GC=0):
   model = DLASeg('dla{}'.format(num_layers), heads,
-                 pretrained=True,
-                 down_ratio=down_ratio,
-                 final_kernel=1,
-                 last_level=5,
-                 head_conv=head_conv,
-                 num_classes=num_classes,
-                 num_poses=num_poses,
-                 cat_spec_wh=cat_spec_wh,
-                 clsID4Pose=clsID4Pose,
-                 conf_thres=conf_thres)
+                pretrained=True,
+                down_ratio=down_ratio,
+                final_kernel=1,
+                last_level=5,
+                head_conv=head_conv,
+                num_gc_cls=num_gc_cls,
+                clsID4GC=clsID4GC,
+                )
   return model
 

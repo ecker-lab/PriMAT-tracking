@@ -1,6 +1,4 @@
 from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import _init_paths
 
@@ -16,10 +14,11 @@ from models.data_parallel import DataParallel
 from logger import Logger
 from datasets.jde import JointDataset
 from trains.mot import MotTrainer
+from tracking_utils.utils import init_seeds
 
 
 def main(opt):
-    torch.manual_seed(opt.seed)
+    init_seeds(opt.seed)
     torch.backends.cudnn.benchmark = not opt.not_cuda_benchmark and not opt.test
 
     print('Setting up data...')
@@ -32,7 +31,7 @@ def main(opt):
     dataset_root = data_config['root']
     f.close()
     transforms = T.Compose([T.ToTensor()])
-    # TODO why fixed input image size? opt.input_wh in mcmot code
+    # TODO why fixed input image size? why not size set in opts? opt.input_wh
     dataset = JointDataset(opt, dataset_root, trainset_paths, (1088, 608), augment=True, transforms=transforms)
     # added for val
     if opt.trainval:
@@ -47,13 +46,13 @@ def main(opt):
     opt.device = torch.device('cuda' if opt.gpus[0] >= 0 else 'cpu')
 
     print('Creating model...')
-    if opt.use_pose:
-        model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=opt.num_poses, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=opt.clsID4Pose, conf_thres=opt.conf_thres)
+    if opt.use_gc:
+        model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=opt.num_gc_cls, clsID4GC=opt.clsID4GC)
     else:
-        model = create_model(opt.arch, opt.heads, opt.head_conv, num_classes=opt.num_classes, num_poses=None, cat_spec_wh=opt.cat_spec_wh, clsID4Pose=None, conf_thres=opt.conf_thres)
-    if opt.train_only_pose:
+        model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=None, clsID4GC=None)
+    if opt.train_only_gc:
         for name, param in model.named_parameters():
-            if 'mpc' in name or 'pose_classifier' in name:
+            if 'gc' in name or 'General_Classification' in name:
                 param.requires_grad = True
             else:
                 param.requires_grad = False
@@ -125,7 +124,7 @@ def main(opt):
         #                epoch, model, optimizer)
         if opt.trainval:
             if epoch % opt.val_intervals == 0:
-                if 'mpc' in opt.heads:
+                if opt.use_gc:
                     log_dict_val, _, cmat = trainer.val(epoch, val_loader)
                 else:
                     log_dict_val, _ = trainer.val(epoch, val_loader)
@@ -134,7 +133,7 @@ def main(opt):
                     
                     logger.write('{} {:8f} | '.format(k, v))
                 logger.write('\n')
-                if 'mpc' in opt.heads:
+                if opt.use_gc:
                     logger.val_summary('val_cmat', cmat, epoch)
     logger.close()
 

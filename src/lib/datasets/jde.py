@@ -1,25 +1,18 @@
+import copy
 import glob
 import math
 import os
 import os.path as osp
 import random
 import time
-from collections import OrderedDict
+
+from collections import OrderedDict, defaultdict
 
 import cv2
 import numpy as np
 import torch
-import copy
-
-from torch.utils.data import Dataset
-from torchvision.transforms import transforms as T
-#from cython_bbox import bbox_overlaps as bbox_ious
-from opts import opts
-from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian
-from utils.utils import xyxy2xywh, xywh2xyxy
-
-#mcmot import
-from collections import defaultdict
+from utils.image import draw_msra_gaussian, draw_umich_gaussian, gaussian_radius, random_affine, letterbox
+from utils.utils import xywh2xyxy, xyxy2xywh
 
 
 class LoadImages:  # for inference
@@ -142,35 +135,6 @@ class LoadVideo:  # for inference
 
 
 class LoadImagesAndLabels:  # for training
-    def __init__(self, path, img_size=(1088, 608), augment=False, transforms=None):
-        with open(path, 'r') as file:
-            self.img_files = file.readlines()
-            self.img_files = [x.replace('\n', '') for x in self.img_files]
-            self.img_files = list(filter(lambda x: len(x) > 0, self.img_files))
-
-        self.label_files = [x.replace('images', 'labels_with_ids').replace('.png', '.txt').replace('.jpg', '.txt')
-                            for x in self.img_files]
-
-        # added read in of pose labels
-        if 'mps' in self.opt.heads:
-            with open(path.replace('.','_pose.'), 'r') as file:
-                self.pose_labels = [x.rstrip() for x in file.readlines()]
-                self.pose_labels = list(filter(lambda x: len(x) > 0, self.pose_labels))
-
-        self.nF = len(self.img_files)  # number of image files
-        self.width = img_size[0]
-        self.height = img_size[1]
-        self.augment = augment
-        self.transforms = transforms
-
-    # added return of pose_label
-    def __getitem__(self, files_index):
-        img_path = self.img_files[files_index]
-        label_path = self.label_files[files_index]
-        if 'mpc' in self.opt.heads:
-            return self.get_data(img_path, label_path), self.pose_labels[files_index]
-        else:
-            return self.get_data(img_path, label_path)
 
     def get_data(self, img_path, label_path):
         height = self.height
@@ -206,6 +170,8 @@ class LoadImagesAndLabels:  # for training
         # Load labels
         if os.path.isfile(label_path):
             labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 6)
+            # TODO fix
+            # labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 7)
 
             # Normalized xywh to pixel xyxy format
             labels = labels0.copy()
@@ -259,134 +225,6 @@ class LoadImagesAndLabels:  # for training
         return self.nF  # number of batches
 
 
-def letterbox(img, height=608, width=1088,
-              color=(127.5, 127.5, 127.5)):  # resize a rectangular image to a padded rectangular
-    shape = img.shape[:2]  # shape = [height, width]
-    ratio = min(float(height) / shape[0], float(width) / shape[1])
-    new_shape = (round(shape[1] * ratio), round(shape[0] * ratio))  # new_shape = [width, height]
-    dw = (width - new_shape[0]) / 2  # width padding
-    dh = (height - new_shape[1]) / 2  # height padding
-    top, bottom = round(dh - 0.1), round(dh + 0.1)
-    left, right = round(dw - 0.1), round(dw + 0.1)
-    img = cv2.resize(img, new_shape, interpolation=cv2.INTER_AREA)  # resized, no border
-    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # padded rectangular
-    return img, ratio, dw, dh
-
-# TODO What is the difference to the above version that is a part of fairmot?
-def letterbox_image(image, size):
-    '''resize image with unchanged aspect ratio using padding'''
-    iw, ih = image.shape[0:2][::-1]
-    w, h = size
-    scale = min(w/iw, h/ih)
-    nw = int(iw*scale)
-    nh = int(ih*scale)
-    image = cv2.resize(image, (nw,nh), interpolation=cv2.INTER_CUBIC)
-    new_image = np.zeros((size[1], size[0], 3), np.uint8)
-    new_image.fill(128)
-    dx = (w-nw)//2
-    dy = (h-nh)//2
-    new_image[dy:dy+nh, dx:dx+nw,:] = image
-    return new_image
-
-
-#FIXME can happen that BB's are cut out completely -> can lead to errors with pose classification right now!!!
-def random_affine(img, targets=None, degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-2, 2),
-                  borderValue=(127.5, 127.5, 127.5)):
-    # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
-    # https://medium.com/uruvideo/dataset-augmentation-with-random-homographies-a8f4b44830d4
-
-    border = 0  # width of added border (optional)
-    height = img.shape[0]
-    width = img.shape[1]
-
-    # Rotation and Scale
-    R = np.eye(3)
-    a = random.random() * (degrees[1] - degrees[0]) + degrees[0]
-    # a += random.choice([-180, -90, 0, 90])  # 90deg rotations added to small rotations
-    s = random.random() * (scale[1] - scale[0]) + scale[0]
-    R[:2] = cv2.getRotationMatrix2D(angle=a, center=(img.shape[1] / 2, img.shape[0] / 2), scale=s)
-
-    # Translation
-    T = np.eye(3)
-    T[0, 2] = (random.random() * 2 - 1) * translate[0] * img.shape[0] + border  # x translation (pixels)
-    T[1, 2] = (random.random() * 2 - 1) * translate[1] * img.shape[1] + border  # y translation (pixels)
-
-    # Shear
-    S = np.eye(3)
-    S[0, 1] = math.tan((random.random() * (shear[1] - shear[0]) + shear[0]) * math.pi / 180)  # x shear (deg)
-    S[1, 0] = math.tan((random.random() * (shear[1] - shear[0]) + shear[0]) * math.pi / 180)  # y shear (deg)
-
-    M = S @ T @ R  # Combined rotation matrix. ORDER IS IMPORTANT HERE!!
-    imw = cv2.warpPerspective(img, M, dsize=(width, height), flags=cv2.INTER_LINEAR,
-                              borderValue=borderValue)  # BGR order borderValue
-
-    # Return warped points also
-    if targets is not None:
-        if len(targets) > 0:
-            n = targets.shape[0]
-            points = targets[:, 2:6].copy()
-            area0 = (points[:, 2] - points[:, 0]) * (points[:, 3] - points[:, 1])
-
-            # warp points
-            xy = np.ones((n * 4, 3))
-            xy[:, :2] = points[:, [0, 1, 2, 3, 0, 3, 2, 1]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
-            xy = (xy @ M.T)[:, :2].reshape(n, 8)
-
-            # create new boxes
-            x = xy[:, [0, 2, 4, 6]]
-            y = xy[:, [1, 3, 5, 7]]
-            xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
-
-            # apply angle-based reduction
-            radians = a * math.pi / 180
-            reduction = max(abs(math.sin(radians)), abs(math.cos(radians))) ** 0.5
-            x = (xy[:, 2] + xy[:, 0]) / 2
-            y = (xy[:, 3] + xy[:, 1]) / 2
-            w = (xy[:, 2] - xy[:, 0]) * reduction
-            h = (xy[:, 3] - xy[:, 1]) * reduction
-            xy = np.concatenate((x - w / 2, y - h / 2, x + w / 2, y + h / 2)).reshape(4, n).T
-
-            # reject warped points outside of image
-            #np.clip(xy[:, 0], 0, width, out=xy[:, 0])
-            #np.clip(xy[:, 2], 0, width, out=xy[:, 2])
-            #np.clip(xy[:, 1], 0, height, out=xy[:, 1])
-            #np.clip(xy[:, 3], 0, height, out=xy[:, 3])
-            w = xy[:, 2] - xy[:, 0]
-            h = xy[:, 3] - xy[:, 1]
-            area = w * h
-            ar = np.maximum(w / (h + 1e-16), h / (w + 1e-16))
-            i = (w > 4) & (h > 4) & (area / (area0 + 1e-16) > 0.1) & (ar < 10)
-
-            targets = targets[i]
-            targets[:, 2:6] = xy[i]
-            targets = targets[targets[:, 2] < width]
-            targets = targets[targets[:, 4] > 0]
-            targets = targets[targets[:, 3] < height]
-            targets = targets[targets[:, 5] > 0]
-
-        return imw, targets, M
-    else:
-        return imw
-
-
-def collate_fn(batch):
-    imgs, labels, paths, sizes = zip(*batch)
-    batch_size = len(labels)
-    imgs = torch.stack(imgs, 0)
-    max_box_len = max([l.shape[0] for l in labels])
-    labels = [torch.from_numpy(l) for l in labels]
-    filled_labels = torch.zeros(batch_size, max_box_len, 6)
-    labels_len = torch.zeros(batch_size)
-
-    for i in range(batch_size):
-        isize = labels[i].shape[0]
-        if len(labels[i]) > 0:
-            filled_labels[i, :isize, :] = labels[i]
-        labels_len[i] = isize
-
-    return imgs, filled_labels, paths, sizes, labels_len.unsqueeze(1)
-
-
 class JointDataset(LoadImagesAndLabels):  # for training
     default_resolution = [1088, 608]
     mean = None
@@ -394,23 +232,23 @@ class JointDataset(LoadImagesAndLabels):  # for training
 
     def __init__(self, opt, root, paths, img_size=(1088, 608), augment=False, transforms=None):
         self.opt = opt
-        # dataset_names = paths.keys()
         self.img_files = OrderedDict()
         self.label_files = OrderedDict()
         self.tid_num = OrderedDict()
         self.tid_start_index = OrderedDict()
 
-        # added for pose
-        if self.opt.use_pose:
-            self.pose_labels = OrderedDict()
+        # added for gc
+        if self.opt.use_gc:
+            self.gc_labels = OrderedDict()
 
-        self.num_classes = len(opt.reid_cls_ids.split(','))
         self.class_names = opt.reid_cls_names.split(',')
-        if self.opt.use_pose:
-            self.num_poses = len(opt.mpc_class_ids.split(','))
-            self.pose_names = opt.mpc_class_names.split(',')
-            
-        # added for cat_spec_wh
+        self.num_classes = len(self.class_names)
+
+        if self.opt.use_gc:
+            self.gc_cls_names = opt.gc_cls_names.split(',')
+            self.num_gc_cls = len(self.gc_cls_names)
+
+
         if self.opt.cat_spec_wh:
             self.wh_classes = self.num_classes
         else:
@@ -431,10 +269,10 @@ class JointDataset(LoadImagesAndLabels):  # for training
 
 
             # added read in of pose labels
-            if self.opt.use_pose:
+            if self.opt.use_gc:
                 with open(path.replace('.train','-pose.train').replace('.val','-pose.val'), 'r') as file:
-                    self.pose_labels[ds] = [x.rstrip() for x in file.readlines()]
-                    self.pose_labels[ds] = list(filter(lambda x: len(x) > 0, self.pose_labels[ds]))
+                    self.gc_labels[ds] = [x.rstrip() for x in file.readlines()]
+                    self.gc_labels[ds] = list(filter(lambda x: len(x) > 0, self.gc_labels[ds]))
 
         # read in GT labels
         # for each file of directories
@@ -453,6 +291,8 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 # if img_max > max_index:
                 #     max_index = img_max
                 lb = lb.reshape(-1, 6)
+                # TODO fix
+                # lb = lb.reshape(-1, 7)
                 for item in lb:
                     if item[1] > max_ids_dict[int(item[0])]:  # item[0]: cls_id, item[1]: track id
                         max_ids_dict[int(item[0])] = item[1]
@@ -496,7 +336,10 @@ class JointDataset(LoadImagesAndLabels):  # for training
         img_path = self.img_files[ds][files_index - start_index]
         label_path = self.label_files[ds][files_index - start_index]
 
-        # added for pose
+        # added for gc
+        if self.opt.use_gc:
+            classify_cls = self.gc_labels[ds][files_index - start_index]
+            classify_cls = torch.tensor(int(classify_cls))
 
         imgs, labels, img_path, (input_h, input_w) = self.get_data(img_path, label_path)
         for i, _ in enumerate(labels):
@@ -526,6 +369,11 @@ class JointDataset(LoadImagesAndLabels):  # for training
         for k in range(num_objs):
             label = labels[k]
             bbox = label[2:]
+            # TODO clean up, doesnt need to be in for loop, richards code for if label in same gt file as rest
+            # bbox = label[2:6]
+            # if self.opt.use_gc:
+            #     pose = torch.tensor(int(label[6]))
+            #
             cls_id = int(label[0])
             bbox[[0, 2]] = bbox[[0, 2]] * output_w
             bbox[[1, 3]] = bbox[[1, 3]] * output_h
@@ -572,12 +420,14 @@ class JointDataset(LoadImagesAndLabels):  # for training
                 ids[k] = label[1] - 1
 
                 # bbox_xys[k] = bbox_xy
-            # pose = self.pose_labels[k][files_index]
+
+            # gc_labels = self.gc_labels[k][files_index]
+            
         #FIXME for DEREK
         # pose = torch.tensor(labels[:,1], dtype=int)
 
-        if self.opt.use_pose:
-            ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask, 'pose': pose, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
+        if self.opt.use_gc:
+            ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask, 'gc': classify_cls, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
         else:
             ret = {'input': imgs, 'hm': hm, 'reg': reg, 'wh': wh, 'ind': ind, 'reg_mask': reg_mask, 'ids': ids, 'cls_id_map': cls_id_map, 'cls_tr_ids': cls_tr_ids}#'bbox': bbox_xys}
         return ret
@@ -647,7 +497,10 @@ class DetDataset(LoadImagesAndLabels):  # for training
         img_path = self.img_files[ds][files_index - start_index]
         label_path = self.label_files[ds][files_index - start_index]
         if os.path.isfile(label_path):
+            # if else needed for with without gc head
             labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 6)
+            # TODO also for richards change
+            # labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 7)
 
         imgs, labels, img_path, (h, w) = self.get_data(img_path, label_path)
         for i, _ in enumerate(labels):
@@ -655,3 +508,21 @@ class DetDataset(LoadImagesAndLabels):  # for training
                 labels[i, 1] += self.tid_start_index[ds]
 
         return imgs, labels0, img_path, (h, w)
+
+
+def collate_fn(batch):
+    imgs, labels, paths, sizes = zip(*batch)
+    batch_size = len(labels)
+    imgs = torch.stack(imgs, 0)
+    max_box_len = max([l.shape[0] for l in labels])
+    labels = [torch.from_numpy(l) for l in labels]
+    filled_labels = torch.zeros(batch_size, max_box_len, 6)
+    labels_len = torch.zeros(batch_size)
+
+    for i in range(batch_size):
+        isize = labels[i].shape[0]
+        if len(labels[i]) > 0:
+            filled_labels[i, :isize, :] = labels[i]
+        labels_len[i] = isize
+
+    return imgs, filled_labels, paths, sizes, labels_len.unsqueeze(1)

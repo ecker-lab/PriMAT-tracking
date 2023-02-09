@@ -51,6 +51,7 @@ class KalmanFilter(object):
         # state estimate. These weights control the amount of uncertainty in
         # the model. This is a bit hacky.
         self._std_weight_position = 1. / 20
+        # FIXME shouldn't this be in combination with FPS -> less FPS => faster motion...
         self._std_weight_velocity = 1. / 160
 
     def initiate(self, measurement):
