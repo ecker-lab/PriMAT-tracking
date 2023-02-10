@@ -15,7 +15,6 @@ python demo.py mot  --load_model ../exp/mot/testing_fixes_gc/model_last.pth\
                     --debug_info\
                     # --id_inline\
                     # --output_format 'text'\
-                    # for this action maybe don't create frame folder
                     # --cat_spec_wh\
                     # --input_h 768\
                     # --input_w 1024\
