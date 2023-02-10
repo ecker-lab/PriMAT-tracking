@@ -41,6 +41,17 @@ sudo apt install ffmpeg
 
 ## Data preparation
 
+In general we would like to have the data for training in one folder. This folder has two subfolders, images and labels_with_ids.
+
+```
+dataset_folder
+   |——————images
+   |        └——————IMG0001.jpg
+   |        └——————IMG0002.jpg
+   |        ...
+   └——————labels_with_ids
+```         
+
 - **CrowdHuman**
   The CrowdHuman dataset can be downloaded from their [official webpage](https://www.crowdhuman.org). After downloading, you should prepare the data in the following structure:
 
@@ -54,13 +65,6 @@ crowdhuman
    |         └——————val(empty)
    └------annotation_train.odgt
    └------annotation_val.odgt
-```
-
-If you want to pretrain on CrowdHuman (we train Re-ID on CrowdHuman), you can change the paths in src/gen_labels_crowd_id.py and run:
-
-```
-cd src
-python gen_labels_crowd_id.py
 ```
 
 More general, you have to use the annotation files to create one .txt file in labels_with_ids. These should match the names of all files in the images folders.
@@ -102,16 +106,6 @@ sh experiments/mix_ft_ch_dla34.sh
 sh experiments/mot15_ft_mix_dla34.sh
 ```
 
-## Tracking
-
-- The default settings run tracking on the validation dataset from 2DMOT15. Using the baseline model, you can run:
-
-```
-cd src
-python track.py mot --load_model ../models/fairmot_dla34.pth --conf_thres 0.6
-```
-
-to see the tracking results (76.5 MOTA and 79.3 IDF1 using the baseline model). You can also set save_images=True in src/track.py to save the visualization results of each frame.
 
 ## Videos
 
@@ -136,7 +130,17 @@ You can train FairMOT on custom dataset by following several steps below:
 
 ## Acknowledgement
 
-This project builds completely on the FairMOT model from [ifzhang/FairMOT](https://github.com/ifzhang/FairMOT).
+This project builds on the FairMOT model from [ifzhang/FairMOT](https://github.com/ifzhang/FairMOT), with small changes in the tracking procedure.
+
+> [**FairMOT: On the Fairness of Detection and Re-Identification in Multiple Object Tracking**](http://arxiv.org/abs/2004.01888),            
+> Yifu Zhang, Chunyu Wang, Xinggang Wang, Wenjun Zeng, Wenyu Liu,        
+> *arXiv technical report ([arXiv 2004.01888](http://arxiv.org/abs/2004.01888))*
+
+
+* FairMOT was trained on the CrowdHuman dataset and is one of the best models for detection and tracking of humans in videos.
+* We will finetune the model on MacaquePose and OpenMonkeyStudio data.
+
+
 A large part of their code is borrowed from [Zhongdao/Towards-Realtime-MOT](https://github.com/Zhongdao/Towards-Realtime-MOT) and [xingyizhou/CenterNet](https://github.com/xingyizhou/CenterNet). Thanks for their wonderful works.
 
 ## Citation of FairMOT
