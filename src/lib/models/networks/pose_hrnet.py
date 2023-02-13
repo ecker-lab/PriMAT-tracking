@@ -376,7 +376,7 @@ class PoseHighResolutionNet(nn.Module):
 
 
         if 'gc' in self.heads:
-            self.gc = General_Classification(num_gc_cls, clsID4GC, self.heads['gc'])
+            self.gc_lin = General_Classification(num_gc_cls, clsID4GC, self.heads['gc'])
 
 
         self.pretrained_layers = cfg['MODEL']['EXTRA']['PRETRAINED_LAYERS']
@@ -558,9 +558,9 @@ def fill_fc_weights(layers):
 
 def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_gc_cls=5, clsID4GC=0):
     if num_layers == 32:
-        cfg_dir = '/usr/users/vogg/FairMOT/src/lib/models/networks/config/hrnet_w32.yaml'
+        cfg_dir = '../src/lib/models/networks/config/hrnet_w32.yaml'
     elif num_layers == 18:
-        cfg_dir = 'src/lib/models/networks/config/hrnet_w18.yaml'
+        cfg_dir = '../src/lib/models/networks/config/hrnet_w18.yaml'
     else:
         cfg_dir = '../src/lib/models/networks/config/hrnet_w18.yaml'
     update_config(cfg, cfg_dir)

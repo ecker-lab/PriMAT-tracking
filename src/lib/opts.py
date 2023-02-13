@@ -168,6 +168,7 @@ class opts(object):
     self.parser.add_argument('--multi_loss', default='uncertainty', help='multi_task loss: uncertainty | fix')
     self.parser.add_argument('--gc_loss', default='CrEn',
                              help='gc loss: CrEn | none')
+    
     # additional head settings
     self.parser.add_argument('--norm_wh', action='store_true',
                              help='L1(\hat(y) / y, 1) or L1(\hat(y), y)')
