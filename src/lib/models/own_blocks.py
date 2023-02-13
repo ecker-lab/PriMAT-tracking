@@ -23,16 +23,16 @@ class General_Classification(nn.Module):
         ----------
         gc_features : torch.tensor
         # TODO fix
-            monkey pose head feature map
+            gc head feature map
         cls_id_map : torch.tensor
             map which entrys of feature map correspond to each specific class ID
         target : torch.tensor / None
-            ground truth of monkey pose / None for inference
+            ground truth of classification task / None for inference
 
         Returns
         -------
         torch.tensor
-            prediction of monkey pose
+            prediction of a classification task
         """
         if target is None:
             inds = cls_id_map
