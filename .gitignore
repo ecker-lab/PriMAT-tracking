@@ -4,7 +4,9 @@
 /DCNv2
 /docker
 __pycache__/
+.ipynb_checkpoints
 *.code-workspace
 /testing
 =*
 *.png
+.trunk
