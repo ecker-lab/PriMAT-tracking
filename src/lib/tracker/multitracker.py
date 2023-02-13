@@ -337,7 +337,7 @@ class JDETracker(object):
             
             
             if self.opt.use_gc and cls_id == self.opt.clsID4GC:
-                output['gc_pred'] = output['gc_pred'].reshape(-1,5)[remain_inds.squeeze()].reshape(-1,5)
+                output['gc_pred'] = output['gc_pred'].reshape(-1, self.opt.num_gc_cls)[remain_inds.squeeze()].reshape(-1, self.opt.num_gc_cls)
                 # FIXME should we use this option?
                 # output['gc_pred'] = output['gc_pred'][no_border_inds]
 
@@ -565,7 +565,7 @@ class JDESpecializedTracker(JDETracker):
             cls_id_feature = cls_id_feature[no_border_inds]
 
             if self.opt.use_gc and cls_id == self.opt.clsID4GC:
-                output['gc_pred'] = output['gc_pred'].reshape(-1,5)[np.bitwise_and(remain_inds.squeeze(), no_border_inds.squeeze())].reshape(-1,5)
+                output['gc_pred'] = output['gc_pred'].reshape(-1, self.opt.num_gc_cls)[np.bitwise_and(remain_inds.squeeze(), no_border_inds.squeeze())].reshape(-1, self.opt.num_gc_cls)
 
             if len(cls_dets) > 0:
                 '''Detections'''
