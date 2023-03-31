@@ -1,5 +1,5 @@
 {
-	"root": "/home/matthias/monkey/fairmot-monkey-tracking/src/",
+	"root": "/usr/users/vogg/Labelling/Lemurs/",
 	"train":
 	{
 		"lemur_box_train": "./data/lemur_box.train"

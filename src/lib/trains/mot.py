@@ -17,6 +17,7 @@ from models.decode import mot_decode
 from utils.post_process import ctdet_post_process
 from .base_trainer import BaseTrainer
 
+import numpy as np
 
 class MotLoss(torch.nn.Module):
     def __init__(self, opt):
@@ -28,7 +29,14 @@ class MotLoss(torch.nn.Module):
             NormRegL1Loss() if opt.norm_wh else \
                 RegWeightedL1Loss() if opt.cat_spec_wh else self.crit_reg
         if opt.use_gc:
-            self.crit_gc = torch.nn.CrossEntropyLoss(reduction='sum')
+            if opt.gc_lbl_cnts:
+                gc_lbl_cnt_values = np.fromiter(opt.gc_lbl_cnts.values(), dtype=int)
+                cls_weights = gc_lbl_cnt_values.sum()/(opt.num_gc_cls*gc_lbl_cnt_values)
+                cls_weights = torch.from_numpy(cls_weights).to(dtype=torch.float32)
+                print(cls_weights)
+            else:
+                cls_weights=None
+            self.crit_gc = torch.nn.CrossEntropyLoss(weight=cls_weights, reduction='sum')
             
         self.opt = opt
 
@@ -58,35 +66,34 @@ class MotLoss(torch.nn.Module):
 
 
     def forward(self, outputs, batch):
-        opt = self.opt
 
         hm_loss, wh_loss, off_loss, reid_loss = 0, 0, 0, 0
-        if opt.use_gc:
+        if self.opt.use_gc:
             gc_loss = 0
 
-        for s in range(opt.num_stacks):
+        for s in range(self.opt.num_stacks):
             # ----- Detection loss
             output = outputs[s]
-            if not opt.mse_loss:
+            if not self.opt.mse_loss:
                 output['hm'] = _sigmoid(output['hm'])
 
             # --- heat-map loss
-            hm_loss += self.crit(output['hm'], batch['hm']) / opt.num_stacks
+            hm_loss += self.crit(output['hm'], batch['hm']) / self.opt.num_stacks
             
             # --- box width and height loss
-            if opt.wh_weight > 0:
+            if self.opt.wh_weight > 0:
                 # TODO rename reg_mask to something more useful! where? -> jde.py mot.py, multitracker.py
                 wh_loss += self.crit_wh(
                     output['wh'], batch['reg_mask'],
-                    batch['ind'], batch['wh']) / opt.num_stacks
+                    batch['ind'], batch['wh']) / self.opt.num_stacks
 
             # --- bbox center offset loss
-            if opt.reg_offset and opt.off_weight > 0:
+            if self.opt.reg_offset and self.opt.off_weight > 0:
                 off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
-                                          batch['ind'], batch['reg']) / opt.num_stacks
+                                          batch['ind'], batch['reg']) / self.opt.num_stacks
            
             # ----- ReID loss: only process the class requiring ReID
-            if opt.id_weight > 0:
+            if self.opt.id_weight > 0:
                 cls_id_map = batch['cls_id_map']
                 for cls_id, id_num in self.nID_dict.items():
                     inds = torch.where(cls_id_map == cls_id)
@@ -101,18 +108,19 @@ class MotLoss(torch.nn.Module):
 
                     reid_loss += self.id_loss(cls_id_pred, cls_id_target) / float(cls_id_target.nelement())
 
-            if opt.use_gc:
-                gc_loss += self.crit_gc(output['gc_pred'], batch['gc']) / batch['gc'].numel()
+            if self.opt.use_gc:
+                #print('output: ',output['gc_pred'],' gt: ', batch['gc'].flatten(), batch['gc'].numel())
+                gc_loss += self.crit_gc(output['gc_pred'], batch['gc'].flatten()) / batch['gc'].numel()
 
 
-        det_loss = opt.hm_weight * hm_loss + opt.wh_weight * wh_loss + opt.off_weight * off_loss
+        det_loss = self.opt.hm_weight * hm_loss + self.opt.wh_weight * wh_loss + self.opt.off_weight * off_loss
 
 
         
-        if opt.multi_loss == 'uncertainty':
+        if self.opt.multi_loss == 'uncertainty':
             # FIXME loss scalings -- gc loss way to huge?????
             loss = torch.exp(-self.s_det) * det_loss + torch.exp(-self.s_id) * reid_loss + (self.s_det + self.s_id)
-            # FIXME why only take half loss?????? TIMO???? HEEEELP MEEEEEE!!!!
+            # FIXME why only take half loss?
             loss *= 0.5
         else:
             loss = det_loss + 0.1 * reid_loss
@@ -121,8 +129,8 @@ class MotLoss(torch.nn.Module):
         loss_stats = {'loss': loss, 'hm_loss': hm_loss,
                     'wh_loss': wh_loss, 'off_loss': off_loss, 'id_loss': reid_loss}
 
-        if opt.use_gc:
-            loss += 0.5 * gc_loss
+        if self.opt.use_gc:
+            loss += 10 * gc_loss
 
             loss_stats.update({'loss': loss, 'gc_loss': gc_loss})
         

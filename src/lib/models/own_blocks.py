@@ -12,7 +12,7 @@ class General_Classification(nn.Module):
         self.num_cls = num_cls
         self.clsID4GC = clsID4GC
         
-        self.pose_classifier = nn.Linear(self.emb_dim, self.num_cls, bias=True)
+        self.gc_classifier = nn.Linear(self.emb_dim, self.num_cls, bias=True)
         self.sm = nn.Softmax(dim=1)
         
 
@@ -50,7 +50,7 @@ class General_Classification(nn.Module):
             feat = gc_features[inds[0],:,inds[2],inds[3]]
             # feat = self.emb_scale * F.normalize(feat)
 
-        pred = self.pose_classifier(feat).contiguous()
+        pred = self.gc_classifier(feat).contiguous()
         
         if target is None:
             return self.sm(pred).detach()

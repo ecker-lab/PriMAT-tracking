@@ -83,7 +83,54 @@ def iou_distance(atracks, btracks):
     else:
         atlbrs = [track.tlbr for track in atracks]
         btlbrs = [track.tlbr for track in btracks]
+        
     _ious = ious(atlbrs, btlbrs)
+    cost_matrix = 1 - _ious
+
+    return cost_matrix
+
+
+def buffered_iou_distance(atracks, btracks, factor = 0.2):
+    """
+    Compute cost based on IoU
+    :type atracks: list[STrack]
+    :type btracks: list[STrack]
+
+    :rtype cost_matrix np.ndarray
+    """
+
+    if (len(atracks)>0 and isinstance(atracks[0], np.ndarray)) or (len(btracks) > 0 and isinstance(btracks[0], np.ndarray)):
+        atlbrs = atracks
+        btlbrs = btracks
+    else:
+        atlbrs = [track.tlbr for track in atracks]
+        btlbrs = [track.tlbr for track in btracks]
+        
+    new_atlbrs = []    
+    for box in atlbrs:
+        top, left, bottom, right = box
+        height = bottom - top
+        width = right - left
+        new_top = int(top - (height * factor/2))
+        new_left = int(left - (width * factor/2))
+        new_bottom = int(bottom + (height * factor/2))
+        new_right = int(right + (width * factor/2))
+        new_atlbrs.append(np.array([new_top, new_left, new_bottom, new_right]))
+        
+        
+    new_btlbrs = []    
+    for box in btlbrs:
+        top, left, bottom, right = box
+        height = bottom - top
+        width = right - left
+        new_top = int(top - (height * 0.1))
+        new_left = int(left - (width * 0.1))
+        new_bottom = int(bottom + (height * 0.1))
+        new_right = int(right + (width * 0.1))
+        new_btlbrs.append(np.array([new_top, new_left, new_bottom, new_right]))
+    
+    
+    _ious = ious(new_atlbrs, new_btlbrs)
     cost_matrix = 1 - _ious
 
     return cost_matrix

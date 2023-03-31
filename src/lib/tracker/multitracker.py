@@ -226,6 +226,9 @@ class JDETracker(object):
         self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
         self.det_thres = opt.det_thres
         self.kalman_filter = KalmanFilter()
+        self.proportion_iou = opt.proportion_iou
+        self.new_overlap_thres = opt.new_overlap_thres
+        self.buffered_iou = opt.buffered_iou
 
     def reset(self):
         """
@@ -370,11 +373,11 @@ class JDETracker(object):
 
 
             emb_dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detects)
-            iou_dists = matching.iou_distance(track_pool_dict[cls_id], cls_detects)
+            iou_dists = matching.buffered_iou_distance(track_pool_dict[cls_id], cls_detects)
 
             # pointwise multiplication of the two distance matrices
-            dists = np.multiply(emb_dists, iou_dists)
-            # dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
+            #dists = np.multiply(emb_dists, iou_dists)
+            dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
 
             
             if iou_dists.size == 0:
@@ -382,7 +385,7 @@ class JDETracker(object):
             else:
                 min_dist = np.amin(iou_dists, axis = 0)
 
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.opt.emb_sim_thres)
+            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.opt.sim_thres)
 
             for itracked, idet in matches:
                 track = track_pool_dict[cls_id][itracked]
@@ -392,7 +395,7 @@ class JDETracker(object):
                     activated_tracks_dict[cls_id].append(track)
                 else:
                     track.re_activate(det, self.frame_id, new_id=False)
-                    refined_tracks_dict[cls_id].append(track)
+                    rost_tracks_dict[cls_id].append(track)
 
             """ Step 3: What happens to non-matches"""
             cls_detects = [cls_detects[i] for i in u_detection]
@@ -545,11 +548,12 @@ class JDESpecializedTracker(JDETracker):
         if self.opt.use_gc:
             mnk_inds = inds[:, cls_inds_mask[self.opt.clsID4GC]]
             output['gc_pred'] = self.model.gc_lin(output['gc'], mnk_inds)
+            output['gc_pred'] = output['gc_pred'].squeeze().cpu().numpy()
 
 
         # translate and scale
         dets = map2orig(dets, h_out, w_out, height, width, self.opt.num_classes)
-        output['gc_pred'] = output['gc_pred'].squeeze().cpu().numpy()
+        
 
         # ----- parse each object class
         for cls_id in range(self.opt.num_classes):
@@ -596,18 +600,18 @@ class JDESpecializedTracker(JDETracker):
 
 
             emb_dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detects)
-            iou_dists = matching.iou_distance(track_pool_dict[cls_id], cls_detects)
+            iou_dists = matching.buffered_iou_distance(track_pool_dict[cls_id], cls_detects, factor = self.buffered_iou)
 
 
             #dists = np.multiply(emb_dists, iou_dists)
-            dists = 0.7 * iou_dists + 0.3 * emb_dists
+            dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
             
             if iou_dists.size == 0:
                 min_dist = np.array([])
             else:
                 min_dist = np.amin(iou_dists, axis = 0)
 
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.opt.emb_sim_thres)
+            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.opt.sim_thres)
 
             for itracked, idet in matches:
                 track = track_pool_dict[cls_id][itracked]

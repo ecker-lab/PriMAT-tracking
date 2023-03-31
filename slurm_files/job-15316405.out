@@ -1,0 +1,15 @@
+================================================================================
+JobID = 15316405
+User = vogg, Account = all
+Partition = gpu, Nodelist = agq013
+================================================================================
+/home/uni08/vogg/monkey-tracking-in-the-wild/src/lib
+training chunk_sizes: [2, 2, 2, 2]
+The output will be saved to  /home/uni08/vogg/monkey-tracking-in-the-wild/src/lib/../../exp/mot/macaquecp_dla_seed1
+Setting up data...
+Traceback (most recent call last):
+  File "train.py", line 148, in <module>
+    main(opt)
+  File "train.py", line 33, in main
+    if data_config['gc_cnts']:
+KeyError: 'gc_cnts'

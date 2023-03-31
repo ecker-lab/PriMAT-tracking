@@ -11,7 +11,7 @@ class opts(object):
     self.parser = argparse.ArgumentParser()
     
     # basic experiment setting
-    self.parser.add_argument('task', default='mot', help='mot')
+    self.parser.add_argument('task', default='mot', help='mot') # was task without -- before
     self.parser.add_argument('--dataset', default='jde', help='jde')
     self.parser.add_argument('--exp_id', default='default')
     self.parser.add_argument('--test', action='store_true')
@@ -49,8 +49,7 @@ class opts(object):
     # model
     self.parser.add_argument('--arch', default='dla_34', 
                              help='model architecture. Currently tested'
-                                  'resdcn_34 | resdcn_50 | resfpndcn_34 |'
-                                  'dla_34 | hrnet_18')
+                                  'dla_34 | hrnet_18 | hrnet_32')
     self.parser.add_argument('--head_conv', type=int, default=-1,
                              help='conv layer channels for output head'
                                   '0 for no conv layer'
@@ -60,6 +59,8 @@ class opts(object):
                              help='output stride. Currently only supports 4.')
     self.parser.add_argument('--reid_dim', type=int, default=128,
                              help='feature dim for reid')
+    self.parser.add_argument('--no_aug_hsv', action = "store_false",
+                             help='use color augmentation - should be false for Lemur ID')
     
     # additional heads
     self.parser.add_argument('--gc_dim', type=int, default=128,
@@ -111,12 +112,12 @@ class opts(object):
     # tracking
     self.parser.add_argument('--conf_thres', type=float, default=0.02, help='confidence threshold for tracking')
     self.parser.add_argument('--proportion_iou', type=float, default=0.5, help='which proportion should iou similarity get over cosine_similarity of ReID features; sim = proportion_iou * iou_sim + (1-proportion_iou) * emb_sim')
-    self.parser.add_argument('--emb_sim_thres', type=float, default=0.6, help='embedding similarity threshold of new detection with detections from prior frames')
-    self.parser.add_argument('--iou_sim_thres', type=float, default=0.5, help='iou similarity threshold of new detection with detections from prior frames')
+    self.parser.add_argument('--sim_thres', type=float, default=0.6, help='similarity threshold of new detection with detections from prior frames')
     self.parser.add_argument('--det_thres', type=float, default=0.7, help='thresh for initializing new track')
     self.parser.add_argument('--new_overlap_thres', type=float, default=0.7, help='if current bb is overlapping more than this threshold with existing bb, no new track is started')    # are we using non-max-supression?
     self.parser.add_argument('--track_buffer', type=int, default=3, help='tracking buffer, in seconds how long a track should be kept active after last detection.')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
+    self.parser.add_argument('--buffered_iou', type = float, default = 0, help = 'how much larger should bounding boxes be made for matching? If 0.2 then they will be 20% larger.')
 
     # I/O-things
     self.parser.add_argument('--input_video', type=str,

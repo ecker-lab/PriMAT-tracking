@@ -1,0 +1,27 @@
+================================================================================
+JobID = 14885223
+User = vogg, Account = all
+Partition = gpu, Nodelist = agq009
+================================================================================
+Collecting package metadata (current_repodata.json): ...working... done
+Solving environment: ...working... done
+
+
+==> WARNING: A newer version of conda exists. <==
+  current version: 4.10.1
+  latest version: 23.1.0
+
+Please update conda by running
+
+    $ conda update -n base -c defaults conda
+
+
+
+# All requested packages already installed.
+
+Traceback (most recent call last):
+  File "train.py", line 15, in <module>
+    from datasets.jde import JointDataset
+  File "/home/uni08/vogg/monkey-tracking-in-the-wild/src/lib/datasets/jde.py", line 11, in <module>
+    import cv2
+ModuleNotFoundError: No module named 'cv2'

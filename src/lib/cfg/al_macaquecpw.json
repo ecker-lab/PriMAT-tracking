@@ -1,0 +1,7 @@
+{
+    "root":"/usr/users/agecker/datasets/MacaqueCopyPasteWild/",
+    "train":
+    {
+        "mot15":"./data/al_sharmita.train"
+    }
+}

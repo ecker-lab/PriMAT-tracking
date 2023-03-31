@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import
 
 import os
 
@@ -6,11 +6,11 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
-from .networks.pose_dla_dcn import get_pose_net as get_dla_dcn
+#from .networks.pose_dla_dcn import get_pose_net as get_dla_dcn
 from .networks.pose_hrnet import get_pose_net as get_pose_hrnet
 
 _model_factory = {
-    'dla': get_dla_dcn,
+    #'dla': get_dla_dcn,
     'hrnet': get_pose_hrnet
 }
 

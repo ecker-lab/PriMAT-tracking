@@ -29,7 +29,12 @@ def main(opt):
     if opt.trainval:
         valset_paths = data_config['val']
     dataset_root = data_config['root']
+    
+    if opt.use_gc:
+        if data_config['gc_cnts']:
+            opt.gc_lbl_cnts = data_config['gc_cnts']['train']
     f.close()
+    
     transforms = T.Compose([T.ToTensor()])
     # TODO why fixed input image size? why not size set in opts? opt.input_wh
     dataset = JointDataset(opt, dataset_root, trainset_paths, (1088, 608), augment=True, transforms=transforms)

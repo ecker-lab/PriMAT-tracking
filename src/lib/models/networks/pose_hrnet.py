@@ -517,9 +517,10 @@ class PoseHighResolutionNet(nn.Module):
 
         # Upsampling
         x0_h, x0_w = x[0].size(2), x[0].size(3)
-        x1 = F.upsample(x[1], size=(x0_h, x0_w), mode='bilinear')
-        x2 = F.upsample(x[2], size=(x0_h, x0_w), mode='bilinear')
-        x3 = F.upsample(x[3], size=(x0_h, x0_w), mode='bilinear')
+        # this was F.upsample before, without align_corners, but it always produced warnings
+        x1 = F.interpolate(x[1], size=(x0_h, x0_w), mode='bilinear', align_corners=True) 
+        x2 = F.interpolate(x[2], size=(x0_h, x0_w), mode='bilinear', align_corners=True)
+        x3 = F.interpolate(x[3], size=(x0_h, x0_w), mode='bilinear', align_corners=True)
 
         x = torch.cat([x[0], x1, x2, x3], 1)
 

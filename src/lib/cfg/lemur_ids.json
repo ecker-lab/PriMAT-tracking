@@ -1,7 +1,22 @@
 {
-	"root": "/home/matthias/monkey/fairmot-monkey-tracking/src/",
+	"root": "/usr/users/vogg/Labelling/Lemurs/Individual_imgs/",
 	"train":
 	{
-		"lemur_box_train": "./data/lemur_ids.train"
-	}
+		"lemur_train": "./data/lemur_ids.train"
+	},
+    "gc_cnts":
+    {
+        "train":
+        {
+        "Cha": 5,
+        "Flo": 46,
+        "Gen": 41,
+        "Geo": 61, 
+        "Her": 45, 
+        "Rab": 85,
+        "Red": 34,
+        "Uns": 879
+        }
+    }
+    
 }

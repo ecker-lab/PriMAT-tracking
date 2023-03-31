@@ -1,0 +1,30 @@
+================================================================================
+JobID = 14950031
+User = vogg, Account = all
+Partition = gpu, Nodelist = agq009
+================================================================================
+
+CommandNotFoundError: Your shell has not been properly configured to use 'conda activate'.
+To initialize your shell, run
+
+    $ conda init <SHELL_NAME>
+
+Currently supported shells are:
+  - bash
+  - fish
+  - tcsh
+  - xonsh
+  - zsh
+  - powershell
+
+See 'conda init --help' for more information and options.
+
+IMPORTANT: You may need to close and restart your shell after running 'conda init'.
+
+
+Traceback (most recent call last):
+  File "train.py", line 15, in <module>
+    from datasets.jde import JointDataset
+  File "/home/uni08/vogg/monkey-tracking-in-the-wild/src/lib/datasets/jde.py", line 11, in <module>
+    import cv2
+ModuleNotFoundError: No module named 'cv2'
