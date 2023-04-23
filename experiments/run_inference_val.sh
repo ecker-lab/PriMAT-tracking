@@ -9,7 +9,7 @@ do
 for vid in VID_20210301_105722_0 VID_20210223_123630_0 VID_20210227_133440_0 VID_20210228_154053_0 VID_20210302_103130_0 VID_20210301_151229_0 VID_20210228_160721_0 VID_20210224_114038_0 VID_20210224_115729_0 VID_20210223_123817_0 VID_20210301_145312_0 VID_20210228_153846_0 VID_20210224_115455_0 VID_20210223_123854_0 VID_20210228_153942_0 VID_20210301_143635_0 VID_20210302_103307_0 VID_20210227_133251_0
 
 do
-    for i in 10 20 30 40 50 60 70 80 90 100 110 120 130 140 150
+    for i in 10 20 30 40 50 60 70 80 90 100 110 120 130 140 150 160 170 180 190 200 210 220 230 240 250
     do
     
     
@@ -18,9 +18,12 @@ do
     out=$((i * 2))
 
 python demo.py mot  --load_model ../exp/mot/"$dataset"_seed"$seed"/model_"$out".pth\
-                    --conf_thres 0.01\
+                    --conf_thres 0.02\
                     --det_thres 0.6\
-                    --input_video /usr/users/agecker/datasets/macaque_videos_eval/Videos/"$vid".mp4\
+                    --proportion_iou 0.8\
+                    --new_overlap_thres 0.8\
+                    --sim_thres 0.8\
+                    --input_video /usr/users/vogg/macaque_videos_eval/Videos/"$vid".mp4\
                     --output_root ../videos/methods_paper/"$vid"/"$dataset"_"$seed"_"$i"\
                     --output_name 'testing'\
                     --store_opt\
@@ -44,9 +47,12 @@ python demo.py mot  --load_model ../exp/mot/"$dataset"_seed"$seed"/model_"$out".
     out=$i
 
 python demo.py mot  --load_model ../exp/mot/"$dataset"_seed"$seed"/model_"$out".pth\
-                    --conf_thres 0.01\
+                    --conf_thres 0.02\
                     --det_thres 0.6\
-                    --input_video /usr/users/agecker/datasets/macaque_videos_eval/Videos/"$vid".mp4\
+                    --proportion_iou 0.8\
+                    --new_overlap_thres 0.8\
+                    --sim_thres 0.8\
+                    --input_video /usr/users/vogg/macaque_videos_eval/Videos/"$vid".mp4\
                     --output_root ../videos/methods_paper/"$vid"/"$dataset"_"$seed"_"$i"\
                     --output_name 'testing'\
                     --store_opt\

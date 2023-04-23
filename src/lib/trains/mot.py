@@ -130,7 +130,9 @@ class MotLoss(torch.nn.Module):
                     'wh_loss': wh_loss, 'off_loss': off_loss, 'id_loss': reid_loss}
 
         if self.opt.use_gc:
-            loss += 10 * gc_loss
+            #this has to be changed later, now I only want correct centers and identification
+            loss = 0.2 * hm_loss + 0.2 * off_loss
+            loss += 0.1 * gc_loss
 
             loss_stats.update({'loss': loss, 'gc_loss': gc_loss})
         

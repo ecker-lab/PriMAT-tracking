@@ -1,10 +1,10 @@
 cd src
 python train.py mot --exp_id lemur_ids\
                     --gpus 0 --batch_size 1\
-                    --load_model '../models/hrnet32_lemur_sep22.pth'\
+                    --load_model '../models/hrnetv2_w32_imagenet_pretrained.pth'\
                     --num_epochs 100\
                     --lr_step 40\
-                    --lr '5e-5'\
+                    --lr '2e-5'\
                     --data_cfg '../src/lib/cfg/lemur_ids.json'\
                     --store_opt\
                     --arch hrnet_32\

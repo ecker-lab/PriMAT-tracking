@@ -2,6 +2,6 @@
 	"root": "/usr/users/vogg/Labelling/Lemurs/",
 	"train":
 	{
-		"lemur_box_train": "./data/lemur_box.train"
+		"lemur_box_train": "./data/lemur_box_sep22.train"
 	}
 }
