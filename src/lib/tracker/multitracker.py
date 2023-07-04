@@ -217,6 +217,7 @@ class JDETracker(object):
 
         self.tracked_tracks_dict = defaultdict(list)
         self.lost_tracks_dict = defaultdict(list)
+        self.last_seen_tracks_dict = defaultdict(list)
         self.removed_tracks_dict = defaultdict(list)
 
         self.frame_id = 0
@@ -237,6 +238,7 @@ class JDETracker(object):
         # Reset tracks dict
         self.tracked_tracks_dict = defaultdict(list)
         self.lost_tracks_dict = defaultdict(list)
+        self.last_seen_tracks_dict = defaultdict(list)
         self.removed_tracks_dict = defaultdict(list)
 
         # Reset frame id
@@ -271,7 +273,6 @@ class JDETracker(object):
 
         # record tracking results, key: class_id
         activated_tracks_dict = defaultdict(list)
-        refined_tracks_dict = defaultdict(list)
         lost_tracks_dict = defaultdict(list)
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
@@ -333,16 +334,19 @@ class JDETracker(object):
             # low threshold (0.01) to allow many potential detections
             remain_inds = cls_dets[:, 4] > self.opt.conf_thres
             cls_dets = cls_dets[remain_inds]
-            # no_border_inds = ((cls_dets[:, 0] + cls_dets[:, 2]) / 2 > 0) & ((cls_dets[:, 0] + cls_dets[:, 2]) / 2 < width) & ((cls_dets[:, 1] + cls_dets[:, 3]) / 2 > 0) & ((cls_dets[:, 1] + cls_dets[:, 3]) / 2 < height)
-            # cls_dets = cls_dets[no_border_inds]
+            # Remove detections where the center is closer than X=10 pixels to the border
+            # Reason for this is that there are usually many low-confidence detections close
+            # to the borders which prevent bounding boxes from disappearing
+            no_border_inds = ((cls_dets[:, 0] + cls_dets[:, 2]) / 2 > 10) & ((cls_dets[:, 0] + cls_dets[:, 2]) / 2 < (width - 10)) & ((cls_dets[:, 1] + cls_dets[:, 3]) / 2 > 10) & ((cls_dets[:, 1] + cls_dets[:, 3]) / 2 < (height - 10))
+            cls_dets = cls_dets[no_border_inds]
             cls_id_feature = cls_id_feats[cls_id][remain_inds]
-            # cls_id_feature = cls_id_feature[no_border_inds]
+            cls_id_feature = cls_id_feature[no_border_inds]
             
             
             if self.opt.use_gc and cls_id == self.opt.clsID4GC:
                 output['gc_pred'] = output['gc_pred'].reshape(-1, self.opt.num_gc_cls)[remain_inds.squeeze()].reshape(-1, self.opt.num_gc_cls)
                 # FIXME should we use this option?
-                # output['gc_pred'] = output['gc_pred'][no_border_inds]
+                output['gc_pred'] = output['gc_pred'][no_border_inds]
 
 
             if len(cls_dets) > 0:
@@ -360,14 +364,13 @@ class JDETracker(object):
             unconfirmed_dict = defaultdict(list)
             tracked_tracks_dict = defaultdict(list)
             for track in self.tracked_tracks_dict[cls_id]:
-                if not track.is_activated:
-                    unconfirmed_dict[cls_id].append(track)
-                else:
-                    tracked_tracks_dict[cls_id].append(track)
+                tracked_tracks_dict[cls_id].append(track)
 
             ''' Step 2: Calculate embedding distance and IoU distance'''
             track_pool_dict = defaultdict(list)
+            track_pool_last_seen_dict = defaultdict(list)
             track_pool_dict[cls_id] = joint_stracks(tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id])
+            track_pool_last_seen_dict[cls_id] = joint_stracks(tracked_tracks_dict[cls_id], self.last_seen_tracks_dict[cls_id])
             # Predict the current location with KF
             Track.multi_predict(track_pool_dict[cls_id])
 
@@ -375,8 +378,6 @@ class JDETracker(object):
             emb_dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detects)
             iou_dists = matching.buffered_iou_distance(track_pool_dict[cls_id], cls_detects)
 
-            # pointwise multiplication of the two distance matrices
-            #dists = np.multiply(emb_dists, iou_dists)
             dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
 
             
@@ -390,48 +391,26 @@ class JDETracker(object):
             for itracked, idet in matches:
                 track = track_pool_dict[cls_id][itracked]
                 det = cls_detects[idet]
-                if track.state == TrackState.Tracked:
-                    track.update(cls_detects[idet], self.frame_id)
-                    activated_tracks_dict[cls_id].append(track)
-                else:
-                    track.re_activate(det, self.frame_id, new_id=False)
-                    rost_tracks_dict[cls_id].append(track)
+                track.update(cls_detects[idet], self.frame_id)
+                activated_tracks_dict[cls_id].append(track)
 
-            """ Step 3: What happens to non-matches"""
+            """ Step 3: What happens to non-matches: Will be compared to last position of tracks"""
             cls_detects = [cls_detects[i] for i in u_detection]
-            r_tracked_tracks = [track_pool_dict[cls_id][i]
-                                 for i in u_track if track_pool_dict[cls_id][i].state == TrackState.Tracked]
+            r_tracked_tracks = [track_pool_last_seen_dict[cls_id][i] for i in u_track]
             dists = matching.iou_distance(r_tracked_tracks, cls_detects)
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=self.opt.iou_sim_thres)
+            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.9) # more relaxed threshold
 
             for i_tracked, i_det in matches:
                 track = r_tracked_tracks[i_tracked]
                 det = cls_detects[i_det]
-                if track.state == TrackState.Tracked:
-                    track.update(det, self.frame_id)
-                    activated_tracks_dict[cls_id].append(track)
-                else:
-                    track.re_activate(det, self.frame_id, new_id=False)
-                    refined_tracks_dict[cls_id].append(track)
+                track.update(det, self.frame_id)
+                activated_tracks_dict[cls_id].append(track)
 
             for it in u_track:
                 track = r_tracked_tracks[it]
                 if not track.state == TrackState.Lost:
                     track.mark_lost()
                     lost_tracks_dict[cls_id].append(track)
-
-
-            '''Deal with unconfirmed tracks, usually tracks with only one beginning frame'''
-            cls_detects = [cls_detects[i] for i in u_detection]
-            dists = matching.iou_distance(unconfirmed_dict[cls_id], cls_detects)
-            matches, u_unconfirmed, u_detection = matching.linear_assignment(dists, thresh=self.opt.iou_sim_thres)
-            for i_tracked, i_det in matches:
-                unconfirmed_dict[cls_id][i_tracked].update(cls_detects[i_det], self.frame_id)
-                activated_tracks_dict[cls_id].append(unconfirmed_dict[cls_id][i_tracked])
-            for it in u_unconfirmed:
-                track = unconfirmed_dict[cls_id][it]
-                track.mark_removed()
-                removed_tracks_dict[cls_id].append(track)
 
 
             """ Step 4: Init new tracks"""
@@ -453,23 +432,36 @@ class JDETracker(object):
                 if self.frame_id - track.end_frame > self.max_frames_between_det:
                     track.mark_removed()
                     removed_tracks_dict[cls_id].append(track)
+                    
+            for track in self.last_seen_tracks_dict[cls_id]:
+                if self.frame_id - track.end_frame > self.max_frames_between_det:
+                    track.mark_removed()
 
 
             self.tracked_tracks_dict[cls_id] = [t for t in self.tracked_tracks_dict[cls_id] if
                                                 t.state == TrackState.Tracked]
             self.tracked_tracks_dict[cls_id] = joint_stracks(self.tracked_tracks_dict[cls_id],
                                                            activated_tracks_dict[cls_id])
-            self.tracked_tracks_dict[cls_id] = joint_stracks(self.tracked_tracks_dict[cls_id],
-                                                           refined_tracks_dict[cls_id])
             self.lost_tracks_dict[cls_id] = sub_stracks(self.lost_tracks_dict[cls_id],
                                                        self.tracked_tracks_dict[cls_id])
             self.lost_tracks_dict[cls_id].extend(lost_tracks_dict[cls_id])
             self.lost_tracks_dict[cls_id] = sub_stracks(self.lost_tracks_dict[cls_id],
                                                        self.removed_tracks_dict[cls_id])
+            
+            self.last_seen_tracks_dict[cls_id] = sub_stracks(self.last_seen_tracks_dict[cls_id],
+                                                       self.tracked_tracks_dict[cls_id])
+            self.last_seen_tracks_dict[cls_id].extend(lost_tracks_dict[cls_id])
+            self.last_seen_tracks_dict[cls_id] = sub_stracks(self.last_seen_tracks_dict[cls_id],
+                                                       self.removed_tracks_dict[cls_id])
+            
             self.removed_tracks_dict[cls_id].extend(removed_tracks_dict[cls_id])
             self.tracked_tracks_dict[cls_id], self.lost_tracks_dict[cls_id] = remove_duplicate_tracks(
                 self.tracked_tracks_dict[cls_id],
                 self.lost_tracks_dict[cls_id])
+            
+            self.tracked_tracks_dict[cls_id], self.last_seen_tracks_dict[cls_id] = remove_duplicate_tracks(
+                self.tracked_tracks_dict[cls_id],
+                self.last_seen_tracks_dict[cls_id])
 
             # get scores of lost tracks
             output_tracks_dict[cls_id] = [track for track in self.tracked_tracks_dict[cls_id] if track.is_activated]
@@ -477,8 +469,6 @@ class JDETracker(object):
             logger.debug('===========Frame {}=========='.format(self.frame_id))
             logger.debug('Activated: {}'.format(
                 [track.track_id for track in activated_tracks_dict[cls_id]]))
-            logger.debug('Refind: {}'.format(
-                [track.track_id for track in refined_tracks_dict[cls_id]]))
             logger.debug('Lost: {}'.format(
                 [track.track_id for track in lost_tracks_dict[cls_id]]))
             logger.debug('Removed: {}'.format(

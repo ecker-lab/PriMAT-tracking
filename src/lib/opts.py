@@ -112,7 +112,7 @@ class opts(object):
     # tracking
     self.parser.add_argument('--conf_thres', type=float, default=0.02, help='confidence threshold for tracking')
     self.parser.add_argument('--proportion_iou', type=float, default=0.5, help='which proportion should iou similarity get over cosine_similarity of ReID features; sim = proportion_iou * iou_sim + (1-proportion_iou) * emb_sim')
-    self.parser.add_argument('--sim_thres', type=float, default=0.6, help='similarity threshold of new detection with detections from prior frames')
+    self.parser.add_argument('--sim_thres', type=float, default=0.8, help='similarity threshold of new detection with detections from prior frames')
     self.parser.add_argument('--det_thres', type=float, default=0.7, help='thresh for initializing new track')
     self.parser.add_argument('--new_overlap_thres', type=float, default=0.7, help='if current bb is overlapping more than this threshold with existing bb, no new track is started')    # are we using non-max-supression?
     self.parser.add_argument('--track_buffer', type=int, default=3, help='tracking buffer, in seconds how long a track should be kept active after last detection.')

@@ -87,7 +87,7 @@ def eval_seq(
 ):
     if save_dir:
         mkdir_if_missing(save_dir)
-    tracker = JDESpecializedTracker(opt, frame_rate)
+    tracker = JDETracker(opt, frame_rate)
     timer = Timer()
     results_dict = defaultdict(list)
     frame_id = 0
