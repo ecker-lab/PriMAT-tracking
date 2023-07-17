@@ -230,6 +230,8 @@ class JDETracker(object):
         self.proportion_iou = opt.proportion_iou
         self.new_overlap_thres = opt.new_overlap_thres
         self.buffered_iou = opt.buffered_iou
+        self.double_kalman = opt.double_kalman
+        self.use_buffered = opt.use_buffered_iou
 
     def reset(self):
         """
@@ -376,7 +378,7 @@ class JDETracker(object):
 
 
             emb_dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detects)
-            iou_dists = matching.buffered_iou_distance(track_pool_dict[cls_id], cls_detects)
+            iou_dists = matching.iou_distance(track_pool_dict[cls_id], cls_detects)
 
             dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
 
@@ -394,23 +396,45 @@ class JDETracker(object):
                 track.update(cls_detects[idet], self.frame_id)
                 activated_tracks_dict[cls_id].append(track)
 
+            
+
             """ Step 3: What happens to non-matches: Will be compared to last position of tracks"""
-            cls_detects = [cls_detects[i] for i in u_detection]
-            r_tracked_tracks = [track_pool_last_seen_dict[cls_id][i] for i in u_track]
-            dists = matching.iou_distance(r_tracked_tracks, cls_detects)
-            matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.9) # more relaxed threshold
 
-            for i_tracked, i_det in matches:
-                track = r_tracked_tracks[i_tracked]
-                det = cls_detects[i_det]
-                track.update(det, self.frame_id)
-                activated_tracks_dict[cls_id].append(track)
 
-            for it in u_track:
-                track = r_tracked_tracks[it]
-                if not track.state == TrackState.Lost:
-                    track.mark_lost()
-                    lost_tracks_dict[cls_id].append(track)
+            r_tracked_tracks_last_seen = track_pool_last_seen_dict
+            if self.use_buffered:
+
+                cls_detects = [cls_detects[i] for i in u_detection]
+                r_tracked_tracks = [track_pool_dict[cls_id][i] for i in u_track]
+                r_tracked_tracks_last_seen = [track_pool_last_seen_dict[cls_id][i] for i in u_track]
+                buffered_iou_dists = matching.buffered_iou_distance(r_tracked_tracks, cls_detects, factor = self.buffered_iou)
+
+                matches, u_track, u_detection = matching.linear_assignment(buffered_iou_dists, thresh=self.opt.sim_thres)
+
+                for itracked, idet in matches:
+                    track = r_tracked_tracks[itracked]
+                    det = cls_detects[idet]
+                    track.update(cls_detects[idet], self.frame_id)
+                    activated_tracks_dict[cls_id].append(track)
+
+
+            if self.double_kalman:
+                cls_detects = [cls_detects[i] for i in u_detection]
+                r_tracked_tracks = [r_tracked_tracks_last_seen[cls_id][i] for i in u_track]
+                dists = matching.iou_distance(r_tracked_tracks, cls_detects)
+                matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.9) # more relaxed threshold
+
+                for i_tracked, i_det in matches:
+                    track = r_tracked_tracks[i_tracked]
+                    det = cls_detects[i_det]
+                    track.update(det, self.frame_id)
+                    activated_tracks_dict[cls_id].append(track)
+
+                for it in u_track:
+                    track = r_tracked_tracks[it]
+                    if not track.state == TrackState.Lost:
+                        track.mark_lost()
+                        lost_tracks_dict[cls_id].append(track)
 
 
             """ Step 4: Init new tracks"""

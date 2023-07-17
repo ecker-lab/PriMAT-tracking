@@ -123,10 +123,10 @@ def buffered_iou_distance(atracks, btracks, factor = 0.2):
         top, left, bottom, right = box
         height = bottom - top
         width = right - left
-        new_top = int(top - (height * 0.1))
-        new_left = int(left - (width * 0.1))
-        new_bottom = int(bottom + (height * 0.1))
-        new_right = int(right + (width * 0.1))
+        new_top = int(top - (height * factor/2))
+        new_left = int(left - (width * factor/2))
+        new_bottom = int(bottom + (height * factor/2))
+        new_right = int(right + (width * factor/2))
         new_btlbrs.append(np.array([new_top, new_left, new_bottom, new_right]))
     
     

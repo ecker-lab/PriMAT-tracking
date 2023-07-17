@@ -574,6 +574,6 @@ def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_gc_cls=5, c
                                 num_gc_cls=num_gc_cls,
                                 clsID4GC=clsID4GC,
                                 )
-    model.init_weights(cfg.MODEL.PRETRAINED)
+    #model.init_weights(cfg.MODEL.PRETRAINED)
 
     return model

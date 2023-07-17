@@ -47,7 +47,7 @@ class opts(object):
                              help='visualization threshold.')
     
     # model
-    self.parser.add_argument('--arch', default='dla_34', 
+    self.parser.add_argument('--arch', default='hrnet_32', 
                              help='model architecture. Currently tested'
                                   'dla_34 | hrnet_18 | hrnet_32')
     self.parser.add_argument('--head_conv', type=int, default=-1,
@@ -118,6 +118,8 @@ class opts(object):
     self.parser.add_argument('--track_buffer', type=int, default=3, help='tracking buffer, in seconds how long a track should be kept active after last detection.')
     self.parser.add_argument('--min-box-area', type=float, default=100, help='filter out tiny boxes')
     self.parser.add_argument('--buffered_iou', type = float, default = 0, help = 'how much larger should bounding boxes be made for matching? If 0.2 then they will be 20% larger.')
+    self.parser.add_argument('--double_kalman', action = 'store_true', help = 'If true, each unmatched detection is also compared to last visible position of track.')
+    self.parser.add_argument('--use_buffered_iou', action = 'store_true', help = 'If true, each unmatched detection is compared to tracks with buffered iou.')
 
     # I/O-things
     self.parser.add_argument('--input_video', type=str,

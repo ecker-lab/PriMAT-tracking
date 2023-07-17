@@ -471,7 +471,7 @@ class JointDataset(LoadImagesAndLabels):  # for training
             # TODO clean up, doesnt need to be in for loop, richards code for if label in same gt file as rest
             bbox = label[2:6]
             if self.opt.use_gc:
-                classify_cls = torch.tensor(int(label[6]))
+                classify_cls = torch.tensor(int(label[6])) #FIXME: don't overwrite but store in vector
             #
             cls_id = int(label[0])
             bbox[[0, 2]] = bbox[[0, 2]] * output_w

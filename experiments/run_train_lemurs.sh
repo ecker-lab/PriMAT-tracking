@@ -1,7 +1,7 @@
 cd /usr/users/vogg/monkey-tracking-in-the-wild/src
 
-python train.py mot --exp_id lemurs\
-                    --load_model '../exp/mot/macaquecp_seed1/model_150.pth'\
+#--load_model '../models/hrnetv2_w32_imagenet_pretrained.pth'\
+python train.py mot --exp_id lemurs_nopretrain\
                     --num_epochs 500\
                     --lr_step 300\
                     --lr '1e-4'\
