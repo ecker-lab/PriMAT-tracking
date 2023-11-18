@@ -19,25 +19,41 @@ from .base_trainer import BaseTrainer
 
 import numpy as np
 
+
 class MotLoss(torch.nn.Module):
     def __init__(self, opt):
         super(MotLoss, self).__init__()
         self.crit = torch.nn.MSELoss() if opt.mse_loss else FocalLoss()
-        self.crit_reg = RegL1Loss() if opt.reg_loss == 'l1' else \
-            RegLoss() if opt.reg_loss == 'sl1' else None
-        self.crit_wh = torch.nn.L1Loss(reduction='sum') if opt.dense_wh else \
-            NormRegL1Loss() if opt.norm_wh else \
-                RegWeightedL1Loss() if opt.cat_spec_wh else self.crit_reg
+        self.crit_reg = (
+            RegL1Loss()
+            if opt.reg_loss == "l1"
+            else RegLoss()
+            if opt.reg_loss == "sl1"
+            else None
+        )
+        self.crit_wh = (
+            torch.nn.L1Loss(reduction="sum")
+            if opt.dense_wh
+            else NormRegL1Loss()
+            if opt.norm_wh
+            else RegWeightedL1Loss()
+            if opt.cat_spec_wh
+            else self.crit_reg
+        )
         if opt.use_gc:
             if opt.gc_lbl_cnts:
                 gc_lbl_cnt_values = np.fromiter(opt.gc_lbl_cnts.values(), dtype=int)
-                cls_weights = gc_lbl_cnt_values.sum()/(opt.num_gc_cls*gc_lbl_cnt_values)
+                cls_weights = gc_lbl_cnt_values.sum() / (
+                    opt.num_gc_cls * gc_lbl_cnt_values
+                )
                 cls_weights = torch.from_numpy(cls_weights).to(dtype=torch.float32)
                 print(cls_weights)
             else:
-                cls_weights=None
-            self.crit_gc = torch.nn.CrossEntropyLoss(weight=cls_weights, reduction='sum')
-            
+                cls_weights = None
+            self.crit_gc = torch.nn.CrossEntropyLoss(
+                weight=cls_weights, reduction="sum"
+            )
+
         self.opt = opt
 
         self.emb_dim = opt.reid_dim
@@ -47,9 +63,9 @@ class MotLoss(torch.nn.Module):
         self.classifiers = torch.nn.ModuleDict()
         for cls_id, nID in self.nID_dict.items():
             self.classifiers[str(cls_id)] = torch.nn.Linear(self.emb_dim, nID)
-        
+
         self.id_loss = torch.nn.CrossEntropyLoss(ignore_index=-1)
-        if opt.id_loss == 'focal':
+        if opt.id_loss == "focal":
             for cls_id, nID in self.nID_dict.items():
                 torch.nn.init.normal_(self.classifiers[str(cls_id)].weight, std=0.01)
                 prior_prob = 0.01
@@ -64,9 +80,7 @@ class MotLoss(torch.nn.Module):
         # scale factor of detection loss
         self.s_det = torch.nn.Parameter(-1.85 * torch.ones(1))
 
-
     def forward(self, outputs, batch):
-
         hm_loss, wh_loss, off_loss, reid_loss = 0, 0, 0, 0
         if self.opt.use_gc:
             gc_loss = 0
@@ -75,91 +89,142 @@ class MotLoss(torch.nn.Module):
             # ----- Detection loss
             output = outputs[s]
             if not self.opt.mse_loss:
-                output['hm'] = _sigmoid(output['hm'])
+                output["hm"] = _sigmoid(output["hm"])
 
             # --- heat-map loss
-            hm_loss += self.crit(output['hm'], batch['hm']) / self.opt.num_stacks
-            
+            hm_loss += self.crit(output["hm"], batch["hm"]) / self.opt.num_stacks
+
             # --- box width and height loss
             if self.opt.wh_weight > 0:
                 # TODO rename reg_mask to something more useful! where? -> jde.py mot.py, multitracker.py
-                wh_loss += self.crit_wh(
-                    output['wh'], batch['reg_mask'],
-                    batch['ind'], batch['wh']) / self.opt.num_stacks
+                wh_loss += (
+                    self.crit_wh(
+                        output["wh"], batch["reg_mask"], batch["ind"], batch["wh"]
+                    )
+                    / self.opt.num_stacks
+                )
 
             # --- bbox center offset loss
             if self.opt.reg_offset and self.opt.off_weight > 0:
-                off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
-                                          batch['ind'], batch['reg']) / self.opt.num_stacks
-           
+                off_loss += (
+                    self.crit_reg(
+                        output["reg"], batch["reg_mask"], batch["ind"], batch["reg"]
+                    )
+                    / self.opt.num_stacks
+                )
+
             # ----- ReID loss: only process the class requiring ReID
             if self.opt.id_weight > 0:
-                cls_id_map = batch['cls_id_map']
+                cls_id_map = batch["cls_id_map"]
                 for cls_id, id_num in self.nID_dict.items():
                     inds = torch.where(cls_id_map == cls_id)
                     # skip not relevant classes
                     if inds[0].shape[0] == 0:
                         continue
-                    cls_id_head = output['id'][inds[0], :, inds[2], inds[3]]
+                    cls_id_head = output["id"][inds[0], :, inds[2], inds[3]]
                     cls_id_head = self.emb_scale_dict[cls_id] * F.normalize(cls_id_head)
-                    cls_id_target = batch['cls_tr_ids'][inds[0], cls_id, inds[2], inds[3]]
+                    cls_id_target = batch["cls_tr_ids"][
+                        inds[0], cls_id, inds[2], inds[3]
+                    ]
 
-                    cls_id_pred = self.classifiers[str(cls_id)].forward(cls_id_head).contiguous()
+                    cls_id_pred = (
+                        self.classifiers[str(cls_id)].forward(cls_id_head).contiguous()
+                    )
 
-                    reid_loss += self.id_loss(cls_id_pred, cls_id_target) / float(cls_id_target.nelement())
+                    reid_loss += self.id_loss(cls_id_pred, cls_id_target) / float(
+                        cls_id_target.nelement()
+                    )
 
             if self.opt.use_gc:
-                #print('output: ',output['gc_pred'],' gt: ', batch['gc'].flatten(), batch['gc'].numel())
-                gc_loss += self.crit_gc(output['gc_pred'], batch['gc'].flatten()) / batch['gc'].numel()
 
+                if self.opt.gc_with_roi:
+                    gc_loss += (
+                        self.crit_gc(output["gc_pred"], batch["gc"].flatten())
+                        / batch["gc"].numel()
+                    )
+                    
+                else:
+                    inds_obj = torch.where(~torch.all(batch["gc_ct"] == 0, dim=2))
+                    class_labels = batch["gc"][inds_obj[0], inds_obj[1]]
 
-        det_loss = self.opt.hm_weight * hm_loss + self.opt.wh_weight * wh_loss + self.opt.off_weight * off_loss
+                    gc_loss += (
+                    self.crit_gc(output["gc_pred"], class_labels)
+                    / class_labels.numel()
+                    )
 
+        det_loss = (
+            self.opt.hm_weight * hm_loss
+            + self.opt.wh_weight * wh_loss
+            + self.opt.off_weight * off_loss
+        )
 
-        
-        if self.opt.multi_loss == 'uncertainty':
+        if self.opt.multi_loss == "uncertainty":
             # FIXME loss scalings -- gc loss way to huge?????
-            loss = torch.exp(-self.s_det) * det_loss + torch.exp(-self.s_id) * reid_loss + (self.s_det + self.s_id)
-            # FIXME why only take half loss?
+            loss = (
+                torch.exp(-self.s_det) * det_loss
+                + torch.exp(-self.s_id) * reid_loss
+                + (self.s_det + self.s_id)
+            )
             loss *= 0.5
         else:
             loss = det_loss + 0.1 * reid_loss
 
-
-        loss_stats = {'loss': loss, 'hm_loss': hm_loss,
-                    'wh_loss': wh_loss, 'off_loss': off_loss, 'id_loss': reid_loss}
+        loss_stats = {
+            "loss": loss,
+            "hm_loss": hm_loss,
+            "wh_loss": wh_loss,
+            "off_loss": off_loss,
+            "id_loss": reid_loss,
+        }
 
         if self.opt.use_gc:
-            #this has to be changed later, now I only want correct centers and identification
-            loss = 0.2 * hm_loss + 0.2 * off_loss
-            loss += 0.1 * gc_loss
+            loss += 10 * gc_loss
 
-            loss_stats.update({'loss': loss, 'gc_loss': gc_loss})
-        
+            if self.opt.train_only_gc:
+                loss = gc_loss
+
+            loss_stats.update({"loss": loss, "gc_loss": gc_loss})
+
         return loss, loss_stats
-
+        
 
 class MotTrainer(BaseTrainer):
     def __init__(self, opt, model, optimizer=None):
         super(MotTrainer, self).__init__(opt, model, optimizer=optimizer)
 
     def _get_losses(self, opt):
-        if 'gc' in opt.heads:
-            loss_states = ['loss', 'hm_loss', 'wh_loss', 'off_loss', 'id_loss', 'gc_loss']
+        if "gc" in opt.heads:
+            loss_states = [
+                "loss",
+                "hm_loss",
+                "wh_loss",
+                "off_loss",
+                "id_loss",
+                "gc_loss",
+            ]
         else:
-            loss_states = ['loss', 'hm_loss', 'wh_loss', 'off_loss', 'id_loss']
+            loss_states = ["loss", "hm_loss", "wh_loss", "off_loss", "id_loss"]
         loss = MotLoss(opt)
         return loss_states, loss
 
     # TODO might have to include pose here as well?????
     def save_result(self, output, batch, results):
-        reg = output['reg'] if self.opt.reg_offset else None
+        reg = output["reg"] if self.opt.reg_offset else None
         dets = mot_decode(
-            output['hm'], output['wh'], reg=reg, num_classes=self.opt.num_classes,
-            cat_spec_wh=self.opt.cat_spec_wh, K=self.opt.K)
+            output["hm"],
+            output["wh"],
+            reg=reg,
+            num_classes=self.opt.num_classes,
+            cat_spec_wh=self.opt.cat_spec_wh,
+            K=self.opt.K,
+        )
         dets = dets.detach().cpu().numpy().reshape(1, -1, dets.shape[2])
         dets_out = ctdet_post_process(
-            dets.copy(), batch['meta']['c'].cpu().numpy(),
-            batch['meta']['s'].cpu().numpy(),
-            output['hm'].shape[2], output['hm'].shape[3], output['hm'].shape[1])
-        results[batch['meta']['img_id'].cpu().numpy()[0]] = dets_out[0]
+            dets.copy(),
+            batch["meta"]["c"].cpu().numpy(),
+            batch["meta"]["s"].cpu().numpy(),
+            output["hm"].shape[2],
+            output["hm"].shape[3],
+            output["hm"].shape[1],
+        )
+        results[batch["meta"]["img_id"].cpu().numpy()[0]] = dets_out[0]

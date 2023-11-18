@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .config import cfg, update_config
-from ..own_blocks import General_Classification
+from ..own_blocks import General_Classification, LemurIdentityClassification
 
 BN_MOMENTUM = 0.01
 logger = logging.getLogger(__name__)
@@ -270,7 +270,7 @@ class PoseHighResolutionNet(nn.Module):
 
     def __init__(self, cfg, heads, pretrained, down_ratio, final_kernel,
                  last_level, head_conv, out_channel=0, num_gc_cls=5,
-                 clsID4GC=0):
+                 clsID4GC=0, gc_with_roi=False):
         self.inplanes = 64
         extra = cfg.MODEL.EXTRA
         super(PoseHighResolutionNet, self).__init__()
@@ -335,9 +335,10 @@ class PoseHighResolutionNet(nn.Module):
                         nn.init.constant_(m.bias, 0)
 
         self.heads = heads
+        self.gc_with_roi = gc_with_roi
         
 
-        last_inp_channels = np.int(np.sum(pre_stage_channels))
+        last_inp_channels = int(np.sum(pre_stage_channels))
 
         #self.last_layer = nn.Sequential(
             #nn.Conv2d(
@@ -374,9 +375,12 @@ class PoseHighResolutionNet(nn.Module):
                 fill_fc_weights(fc)
             self.__setattr__(head, fc)
 
-
         if 'gc' in self.heads:
-            self.gc_lin = General_Classification(num_gc_cls, clsID4GC, self.heads['gc'])
+            if self.gc_with_roi:
+                self.gc_lin = LemurIdentityClassification(emb_dim=3, num_classes=num_gc_cls) #num_gc_cls
+            else:
+                self.gc_lin = General_Classification(num_gc_cls, clsID4GC, self.heads['gc'])
+        
 
 
         self.pretrained_layers = cfg['MODEL']['EXTRA']['PRETRAINED_LAYERS']
@@ -477,6 +481,7 @@ class PoseHighResolutionNet(nn.Module):
 
 
     def forward(self, x):
+        identity = x
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -557,7 +562,7 @@ def fill_fc_weights(layers):
                 nn.init.constant_(m.bias, 0)
 
 
-def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_gc_cls=5, clsID4GC=0):
+def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_gc_cls=5, clsID4GC=0, gc_with_roi=False):
     if num_layers == 32:
         cfg_dir = '../src/lib/models/networks/config/hrnet_w32.yaml'
     elif num_layers == 18:
@@ -573,7 +578,9 @@ def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_gc_cls=5, c
                                 head_conv=head_conv,
                                 num_gc_cls=num_gc_cls,
                                 clsID4GC=clsID4GC,
+                                gc_with_roi=gc_with_roi
                                 )
+    
     #model.init_weights(cfg.MODEL.PRETRAINED)
 
     return model

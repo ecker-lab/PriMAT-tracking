@@ -6,7 +6,7 @@ import logging
 import os
 import os.path as osp
 
-import datasets.jde as datasets
+import datasets.dataset as datasets
 from logger import save_opt
 from opts import opts
 from tracking_utils.log import logger
@@ -29,13 +29,14 @@ def demo(opt):
 
     logger.info('Starting tracking...')
     dataloader = datasets.LoadVideo(opt.input_video, opt.img_size)
+    video_name = os.path.splitext(os.path.basename(opt.input_video))[0]
     result_filename = os.path.join(result_root, 'results.txt')
 
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
 
     eval_seq(opt, dataloader, opt.task, result_filename,save_dir=frame_dir,
             show_image=False, frame_rate=dataloader.frame_rate,
-            use_cuda=opt.gpus!=[-1])
+            use_cuda=opt.gpus!=[-1], video_name=video_name)
 
     if opt.output_format == 'video':
         output_video_path = osp.join(result_root, opt.output_name + '.mp4')

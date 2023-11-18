@@ -7,7 +7,7 @@ import os.path as osp
 from collections import defaultdict
 
 import cv2
-import datasets.jde as datasets
+import datasets.dataset as datasets
 import motmetrics as mm
 import numpy as np
 import torch
@@ -27,7 +27,7 @@ def write_results_dict(
     if data_type == "mot":
         save_format = "{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id}\n"
         if use_gc:
-            save_format_gc = "{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id}, {gc}, {gc_score}\n"
+            save_format_gc = "{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id}, {gc}, {gc_pred}, {gc_score}\n"
     elif data_type == "kitti":
         save_format = "{frame} {id} pedestrian 0 0 -10 {x1} {y1} {x2} {y2} -10 -10 -10 -1000 -1000 -1000 -10\n"
     else:
@@ -56,8 +56,9 @@ def write_results_dict(
                             h=h,
                             score=score,  # detection score
                             cls_id=cls_id,
-                            gc=gc,
-                            gc_score=gc_score,
+                            gc=', '.join(map(str, gc_score)),
+                            gc_pred=np.round(np.max(gc_score),2),
+                            gc_score=np.argmax(gc_score) if np.max(gc_score) > 0.9 else "7!",
                         )
                     else:
                         line = save_format.format(
@@ -84,10 +85,12 @@ def eval_seq(
     show_image=True,
     frame_rate=30,
     use_cuda=True,
+    video_name="output"
 ):
     if save_dir:
         mkdir_if_missing(save_dir)
     tracker = JDETracker(opt, frame_rate)
+    tracker.video_name = video_name
     timer = Timer()
     results_dict = defaultdict(list)
     frame_id = 0

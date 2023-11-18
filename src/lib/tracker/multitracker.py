@@ -208,9 +208,9 @@ class JDETracker(object):
             opt.device = torch.device('cpu')
         print('Creating model...')
         if opt.use_gc:
-            self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=opt.num_gc_cls, clsID4GC=opt.clsID4GC)
+            self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=opt.num_gc_cls, clsID4GC=opt.clsID4GC, gc_with_roi=opt.gc_with_roi)
         else:
-            self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=None, clsID4GC=None)
+            self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=None, clsID4GC=None, gc_with_roi=False)
         self.model = load_model(self.model, opt.load_model)
         self.model = self.model.to(opt.device)
         self.model.eval()
@@ -220,6 +220,7 @@ class JDETracker(object):
         self.last_seen_tracks_dict = defaultdict(list)
         self.removed_tracks_dict = defaultdict(list)
 
+        self.video_name = "output"
         self.frame_id = 0
         self.max_frames_between_det = int(frame_rate * self.opt.track_buffer)
         self.max_per_image = opt.K
@@ -268,6 +269,7 @@ class JDETracker(object):
 
     def update(self, im_blob, img0):
         self.frame_id += 1
+        
 
         # ----- reset the track ids for all object classes in the first frame
         if self.frame_id == 1:
@@ -283,6 +285,8 @@ class JDETracker(object):
         height = img0.shape[0]
         inp_height = im_blob.shape[2]
         inp_width = im_blob.shape[3]
+        #width = inp_width
+        #height= inp_height
         h_out = inp_height // self.opt.down_ratio
         w_out = inp_width // self.opt.down_ratio
 
@@ -316,13 +320,7 @@ class JDETracker(object):
                 cls_id_feature = cls_id_feature.cpu().numpy()
                 cls_id_feats.append(cls_id_feature)
 
-      
-        if self.opt.use_gc:
-            gc_inds = inds[:, cls_inds_mask[self.opt.clsID4GC]]
-            output['gc_pred'] = self.model.gc_lin(output['gc'], gc_inds)
-            output['gc_pred'] = output['gc_pred'].squeeze().cpu().numpy()
- 
-
+        dets_orig = map2orig(dets, h_out, w_out, inp_height, inp_width, self.opt.num_classes)
         # translate and scale
         dets = map2orig(dets, h_out, w_out, height, width, self.opt.num_classes)
 
@@ -331,11 +329,24 @@ class JDETracker(object):
 
         # ----- parse each object class
         for cls_id in range(self.opt.num_classes):
+            cls_dets_orig = dets_orig[cls_id]
             cls_dets = dets[cls_id]
+            
+            #with open(f'/usr/users/vogg/Labelling/Kolja/{self.video_name}.txt', 'a') as file:
+            #    # Iterate through each row of the numpy array
+            #    for row in cls_dets:
+                    
+                    # Convert the row to a string and write it to the file with the frame_id
+            #        line = f"{self.frame_id}," + ",".join(map(str, row)) + f",{cls_id}"
+             #       file.write(line + '\n')
+            
 
             # low threshold (0.01) to allow many potential detections
             remain_inds = cls_dets[:, 4] > self.opt.conf_thres
             cls_dets = cls_dets[remain_inds]
+            cls_dets_orig = cls_dets_orig[remain_inds]
+            #with open("/usr/users/", 'a') as file:
+            #    np.savetxt(file, new_data, fmt='%f', delimiter=', ')
             # Remove detections where the center is closer than X=10 pixels to the border
             # Reason for this is that there are usually many low-confidence detections close
             # to the borders which prevent bounding boxes from disappearing
@@ -344,14 +355,29 @@ class JDETracker(object):
             cls_id_feature = cls_id_feats[cls_id][remain_inds]
             cls_id_feature = cls_id_feature[no_border_inds]
             
-            
-            if self.opt.use_gc and cls_id == self.opt.clsID4GC:
-                output['gc_pred'] = output['gc_pred'].reshape(-1, self.opt.num_gc_cls)[remain_inds.squeeze()].reshape(-1, self.opt.num_gc_cls)
-                # FIXME should we use this option?
-                output['gc_pred'] = output['gc_pred'][no_border_inds]
-
-
             if len(cls_dets) > 0:
+                if self.opt.use_gc :
+                    gc_inds = inds[:, cls_inds_mask[self.opt.clsID4GC]]
+                    if self.opt.gc_with_roi:
+                        output['gc_pred'] = self.model.gc_lin(im_blob, bboxes=[torch.tensor(cls_dets_orig[:, :4] / 4).cuda()])
+                        output['gc_pred'] = output['gc_pred'].cpu().detach().numpy()
+                    else:
+                        output['gc_pred'] = self.model.gc_lin(output['gc'], gc_inds)
+                        output['gc_pred'] = output['gc_pred'].squeeze().cpu().detach().numpy()
+
+                if self.opt.use_gc and (cls_id == self.opt.clsID4GC):
+                    if self.opt.gc_with_roi:
+                        #output['gc_pred'] = output['gc_pred'].detach().numpy()
+                        #output['gc_pred'] = output['gc_pred'].reshape(-1, self.opt.num_gc_cls)[remain_inds.squeeze()].reshape(-1, self.opt.num_gc_cls)
+                        #output['gc_pred'] = output['gc_pred'][no_border_inds]
+                        output['gc_pred'] = output['gc_pred'].reshape(-1, self.opt.num_gc_cls)
+                        output['gc_pred'] = output['gc_pred'][no_border_inds]
+                    else:
+                        output['gc_pred'] = output['gc_pred'].reshape(-1, self.opt.num_gc_cls)[remain_inds.squeeze()].reshape(-1, self.opt.num_gc_cls)
+                        output['gc_pred'] = output['gc_pred'][no_border_inds]
+
+
+            
                 '''Detections'''
                 if self.opt.use_gc and cls_id == self.opt.clsID4GC:
                     cls_detects = [Track(Track.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, cls_id, self.opt.track_buffer, gc)
@@ -381,6 +407,10 @@ class JDETracker(object):
             iou_dists = matching.iou_distance(track_pool_dict[cls_id], cls_detects)
 
             dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
+            iou_dists_ind = ((iou_dists > 0.8) + 1) ** 5
+
+            #pointwise multiplication of the two distance matrices
+            dists = np.multiply(dists, iou_dists_ind)
 
             
             if iou_dists.size == 0:
@@ -406,7 +436,7 @@ class JDETracker(object):
 
                 cls_detects = [cls_detects[i] for i in u_detection]
                 r_tracked_tracks = [track_pool_dict[cls_id][i] for i in u_track]
-                r_tracked_tracks_last_seen = [track_pool_last_seen_dict[cls_id][i] for i in u_track]
+                r_tracked_tracks_last_seen[cls_id] = [track_pool_last_seen_dict[cls_id][i] for i in u_track]
                 buffered_iou_dists = matching.buffered_iou_distance(r_tracked_tracks, cls_detects, factor = self.buffered_iou)
 
                 matches, u_track, u_detection = matching.linear_assignment(buffered_iou_dists, thresh=self.opt.sim_thres)
@@ -420,7 +450,7 @@ class JDETracker(object):
 
             if self.double_kalman:
                 cls_detects = [cls_detects[i] for i in u_detection]
-                r_tracked_tracks = [r_tracked_tracks_last_seen[cls_id][i] for i in u_track]
+                r_tracked_tracks = [r_tracked_tracks_last_seen[cls_id][i] for i in u_track] #r_tracked_tracks_last_seen[cls_id][i] if there is no use_buffered
                 dists = matching.iou_distance(r_tracked_tracks, cls_detects)
                 matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.9) # more relaxed threshold
 

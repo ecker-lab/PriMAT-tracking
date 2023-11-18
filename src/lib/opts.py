@@ -63,7 +63,7 @@ class opts(object):
                              help='use color augmentation - should be false for Lemur ID')
     
     # additional heads
-    self.parser.add_argument('--gc_dim', type=int, default=128,
+    self.parser.add_argument('--gc_dim', type=int, default=3,
                              help='feature dim for gc')
 
     # input
@@ -151,6 +151,8 @@ class opts(object):
                                  help="Object class ID for which the classification shall be computed.")
     self.parser.add_argument('--train_only_gc', action='store_true',
                               help='Freeze all weights except general classification head + classification.')
+    self.parser.add_argument('--gc_with_roi', action='store_true',
+                              help='Use ROI cutouts + small CNN for doing general classification.')
 
     # loss
     self.parser.add_argument('--mse_loss', action='store_true',
@@ -251,7 +253,7 @@ class opts(object):
       assert 0, 'task not defined!'
     
     if opt.use_gc:
-      opt.heads.update({'gc': opt.gc_dim})
+        opt.heads.update({'gc': opt.gc_dim})
     if opt.reg_offset:
       opt.heads.update({'reg': 2})
     if opt.id_weight > 0:

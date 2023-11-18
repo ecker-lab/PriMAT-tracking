@@ -1,5 +1,5 @@
 {
-	"root": "/usr/users/agecker/datasets/lemur_ids/",
+	"root": "/local/eckerlab/Individual_imgs/",
 	"train":
 	{
 		"lemur_train": "./data/lemur_ids.train"
@@ -15,7 +15,7 @@
         "Her": 45, 
         "Rab": 85,
         "Red": 34,
-        "Uns": 87
+        "Uns": 879
         }
     }
     

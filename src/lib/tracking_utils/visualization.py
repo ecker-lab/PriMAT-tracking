@@ -108,6 +108,8 @@ def plot_tracking(
     id_inline=False,
     debug_info=False,
 ):
+    
+    
 
     img = np.ascontiguousarray(np.copy(image))
     im_h, im_w = img.shape[:2]
@@ -133,6 +135,15 @@ def plot_tracking(
                 (0, 0, 255),
                 thickness=2,
             )
+        if cls_id == 0:
+            if (len(cls_tlwhs) != len(gc_scores_dict[clsID4GC])) or (len(cls_tlwhs) != len(gcs_dict[cls_id])):
+                print(frame_id)
+                print(len(cls_tlwhs) != len(gc_scores_dict))
+                print("cls_tlwhs", len(cls_tlwhs))
+                print("gcs_scores_dict", len(gc_scores_dict[clsID4GC]))
+                print("gcs_dict", len(gcs_dict[cls_id]))
+        
+        
 
         for i, tlwh_i in enumerate(cls_tlwhs):
             x1, y1, w, h = tlwh_i
@@ -158,7 +169,10 @@ def plot_tracking(
             if len(gcs_dict[cls_id]) > 0:
                 if debug_info:
                     collected_scores.append(box_text)
-                box_text += f" : {gc_cls_names[gcs_dict[cls_id][i]]}"
+                a = gc_scores_dict[clsID4GC][i][gcs_dict[cls_id][i]]
+                a = str(round(a, 2)) #if a>0.1 else ""
+                #a=1
+                box_text += f" : {gc_cls_names[gcs_dict[cls_id][i]]}{str(a)}"
 
             cv2.putText(
                 img,
@@ -194,7 +208,6 @@ def plot_tracking(
     # print GC scores in top right corner
     if debug_info:
         uv_top_left = np.array([im_w - 170, 20], dtype=float)
-
         for (row, scores) in zip(collected_scores, gc_scores_dict[clsID4GC]):
             order = np.argsort(scores)[::-1]
             text = "GC Label\n{}\n{}\n{}\n{}\n{}".format(

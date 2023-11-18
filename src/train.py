@@ -12,7 +12,7 @@ from opts import opts
 from models.model import create_model, load_model, save_model
 from models.data_parallel import DataParallel
 from logger import Logger
-from datasets.jde import JointDataset
+from datasets.dataset import JointDataset
 from trains.mot import MotTrainer
 from tracking_utils.utils import init_seeds
 
@@ -52,15 +52,17 @@ def main(opt):
 
     print('Creating model...')
     if opt.use_gc:
-        model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=opt.num_gc_cls, clsID4GC=opt.clsID4GC)
+        model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=opt.num_gc_cls, clsID4GC=opt.clsID4GC, gc_with_roi=opt.gc_with_roi)
     else:
-        model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=None, clsID4GC=None)
+        model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=None, clsID4GC=None, gc_with_roi=False)
     if opt.train_only_gc:
         for name, param in model.named_parameters():
-            if 'gc' in name or 'General_Classification' in name:
+            if 'gc' in name:
                 param.requires_grad = True
+                print(name, "with gradient")
             else:
                 param.requires_grad = False
+                print(name, "without gradient")
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), opt.lr)
     else:
         optimizer = torch.optim.Adam(model.parameters(), opt.lr)

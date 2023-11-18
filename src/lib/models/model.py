@@ -15,12 +15,12 @@ _model_factory = {
 }
 
 
-def create_model(arch, heads, head_conv, num_gc_cls, clsID4GC):
+def create_model(arch, heads, head_conv, num_gc_cls, clsID4GC, gc_with_roi):
     num_layers = int(arch[arch.find('_') + 1:]) if '_' in arch else 0
     arch = arch[:arch.find('_')] if '_' in arch else arch
     get_model = _model_factory[arch]
     model = get_model(num_layers=num_layers, heads=heads, head_conv=head_conv,
-                      num_gc_cls=num_gc_cls, clsID4GC=clsID4GC)
+                      num_gc_cls=num_gc_cls, clsID4GC=clsID4GC, gc_with_roi=gc_with_roi)
     return model
 
 
@@ -37,7 +37,7 @@ def load_model(model, model_path, optimizer=None, resume=False,
         state_dict_ = checkpoint
     state_dict = {}
 
-    # convert data_parallal to model
+    # convert data_parallel to model
     for k in state_dict_:
         if k.startswith('module') and not k.startswith('module_list'):
             state_dict[k[7:]] = state_dict_[k]
