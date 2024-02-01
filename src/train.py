@@ -12,7 +12,7 @@ from opts import opts
 from models.model import create_model, load_model, save_model
 from models.data_parallel import DataParallel
 from logger import Logger
-from datasets.dataset import JointDataset
+from datasets.dataset import JointDataset2, JointDataset
 from trains.mot import MotTrainer
 from tracking_utils.utils import init_seeds
 
@@ -30,14 +30,18 @@ def main(opt):
         valset_paths = data_config['val']
     dataset_root = data_config['root']
     
-    if opt.use_gc:
-        if data_config['gc_cnts']:
-            opt.gc_lbl_cnts = data_config['gc_cnts']['train']
+
+    try:
+        gc_cnts_value = data_config['gc_cnts']
+        opt.gc_lbl_cnts = data_config['gc_cnts']['train']
+    except KeyError:
+        opt.gc_lbl_cnts = False
+
     f.close()
     
     transforms = T.Compose([T.ToTensor()])
     # TODO why fixed input image size? why not size set in opts? opt.input_wh
-    dataset = JointDataset(opt, dataset_root, trainset_paths, (1088, 608), augment=True, transforms=transforms)
+    dataset = JointDataset2(opt, dataset_root, trainset_paths, (1088, 608), augment=True, transforms=transforms)
     # added for val
     if opt.trainval:
         valset = JointDataset(opt, dataset_root, valset_paths, (1088, 608), augment=False, transforms=transforms)
@@ -59,13 +63,16 @@ def main(opt):
         for name, param in model.named_parameters():
             if 'gc' in name:
                 param.requires_grad = True
-                print(name, "with gradient")
+                #print(name, "with gradient")
             else:
                 param.requires_grad = False
-                print(name, "without gradient")
+                #print(name, "without gradient")
+
         optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), opt.lr)
     else:
         optimizer = torch.optim.Adam(model.parameters(), opt.lr)
+
+    
 
     # logger.graph_summary(model)
 
@@ -107,6 +114,7 @@ def main(opt):
     for epoch in range(start_epoch + 1, opt.num_epochs + 1):
         mark = epoch if opt.save_all else 'last'
         log_dict_train, _ = trainer.train(epoch, train_loader)
+
         logger.write('epoch: {} |'.format(epoch))
         for k, v in log_dict_train.items():
             logger.scalar_summary('train_{}'.format(k), v, epoch)

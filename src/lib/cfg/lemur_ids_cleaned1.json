@@ -1,0 +1,22 @@
+{
+	"root": "/usr/users/vogg/Labelling/Lemurs/Individual_imgs/",
+	"train":
+	{
+		"lemur_train": "./data/lemur_ids_cleaned1.train"
+	},
+    "gc_cnts":
+    {
+        "train":
+        {
+        "Cha": 5,
+        "Flo": 244,
+        "Gen": 522,
+        "Geo": 695, 
+        "Her": 667, 
+        "Rab": 697,
+        "Red": 301,
+        "Uns": 932
+        }
+    }
+    
+}

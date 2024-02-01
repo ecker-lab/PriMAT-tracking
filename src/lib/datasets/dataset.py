@@ -181,7 +181,7 @@ class LoadVideo:  # for inference
 
 
 class LoadImagesAndLabels:  # for training
-    def get_data(self, img_path, label_path, with_gc=False, aug_hsv=True):
+    def get_data(self, img_path, label_path, aug_hsv=True):
         height = self.height
         width = self.width
         img = cv2.imread(img_path)  # BGR
@@ -214,10 +214,17 @@ class LoadImagesAndLabels:  # for training
 
         # Load labels
         if os.path.isfile(label_path):
-            if with_gc:
-                labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 7)
-            else:
-                labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 6)
+            labels0 = np.loadtxt(label_path, dtype=np.float32)
+            if (labels0.shape == (6,)) or (labels0.shape == (7,)):
+                labels0 = labels0.reshape(-1, labels0.shape[0])
+            #print("a=",lb.shape)
+            #labels0 = lb.reshape(-1, lb.shape[1])
+            #print("b=",labels0.shape)
+
+            #if with_gc:
+            #    labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 7)
+            #else:
+            #    labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 6)
             # TODO fix
             # labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 7)
 
@@ -399,9 +406,11 @@ class JointDataset(LoadImagesAndLabels):  # for training
         #     classify_cls = self.gc_labels[ds][files_index - start_index]
         #     classify_cls = torch.tensor(int(classify_cls))
 
+        
         imgs, labels, img_path, (input_h, input_w) = self.get_data(
-            img_path, label_path, with_gc=self.opt.use_gc, aug_hsv=self.aug_hsv
+            img_path, label_path, aug_hsv=self.aug_hsv
         )
+        
         for i, _ in enumerate(labels):
             if labels[i, 1] > -1:
                 cls_id = int(labels[i][0])
@@ -628,10 +637,11 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
             # for each label file
             for lp in label_paths:
                 lb = np.loadtxt(lp)
-                
+                if (lb.shape == (6,)) or (lb.shape == (7,)):
+                    lb = lb.reshape(-1, lb.shape[0])
                 if len(lb) < 1:
                     continue
-                lb = lb.reshape(-1, lb.shape[0])
+                #lb = lb.reshape(-1, lb.shape[1])
 
                 for item in lb:
                     if (
@@ -682,132 +692,161 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
         #     classify_cls = self.gc_labels[ds][files_index - start_index]
         #     classify_cls = torch.tensor(int(classify_cls))
 
-        imgs, labels, img_path, (input_h, input_w) = self.get_data(
-            img_path, label_path, with_gc=self.opt.use_gc, aug_hsv=self.aug_hsv
-        )
-        for i, _ in enumerate(labels):
-            if labels[i, 1] > -1:
-                cls_id = int(labels[i][0])
-                start_idx = self.tid_start_idx_of_cls_ids[ds][cls_id]
-                labels[i, 1] += start_idx
+        empty_frame = True
 
-        output_h = imgs.shape[1] // self.opt.down_ratio
-        output_w = imgs.shape[2] // self.opt.down_ratio
-        # num_classes = self.num_classes
-        num_objs = labels.shape[0]
-        hm = np.zeros((self.num_classes, output_h, output_w), dtype=np.float32)
-        if self.opt.ltrb:
-            wh = np.zeros((self.max_objs, 4 * self.wh_classes), dtype=np.float32)
-        else:
-            wh = np.zeros(
-                (self.max_objs, 2 * self.wh_classes), dtype=np.float32
-            )  # mcmot uses this one, without if/else
-        reg = np.zeros((self.max_objs, 2), dtype=np.float32)
-        ind = np.zeros((self.max_objs,), dtype=np.int64)
-        reg_mask = np.zeros((self.max_objs,), dtype=np.uint8)
-        ids = np.zeros((self.max_objs,), dtype=np.int64)
-        cls_tr_ids = np.zeros((self.num_classes, output_h, output_w), dtype=np.int64)
-        cls_id_map = np.full((1, output_h, output_w), -1, dtype=np.int64)
-        bbox_xys = np.zeros((self.max_objs, 4), dtype=np.float32)
+        while empty_frame:
+            empty_frame = False
+            imgs, labels, img_path, (input_h, input_w) = self.get_data(
+                img_path, label_path, aug_hsv=self.aug_hsv
+            )
+            if labels.shape[1] == 7:
+                self.use_gc = True
+            else:
+                self.use_gc = False
 
-        draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else draw_umich_gaussian
-        
-        if self.opt.gc_with_roi:
-            classify_cls = []
-        else:
-            classify_cls = torch.zeros((self.max_objs), dtype=int)
-        
-        classify_ct = torch.zeros((self.max_objs, 2), dtype=int)    
-        class_box_lemur = torch.zeros(num_objs)
-        for k in range(num_objs):
-            label = labels[k]
-            # bbox = label[2:]
-            # TODO clean up, doesnt need to be in for loop, richards code for if label in same gt file as rest
-            bbox = label[2:6]
+            for i, _ in enumerate(labels):
+                if labels[i, 1] > -1:
+                    cls_id = int(labels[i][0])
+                    start_idx = self.tid_start_idx_of_cls_ids[ds][cls_id]
+                    labels[i, 1] += start_idx
+
+            output_h = imgs.shape[1] // self.opt.down_ratio
+            output_w = imgs.shape[2] // self.opt.down_ratio
+            # num_classes = self.num_classes
+            num_objs = labels.shape[0]
+            hm = np.zeros((self.num_classes, output_h, output_w), dtype=np.float32)
+            if self.opt.ltrb:
+                wh = np.zeros((self.max_objs, 4 * self.wh_classes), dtype=np.float32)
+            else:
+                wh = np.zeros(
+                    (self.max_objs, 2 * self.wh_classes), dtype=np.float32
+                )  # mcmot uses this one, without if/else
+            reg = np.zeros((self.max_objs, 2), dtype=np.float32)
+            ind = np.zeros((self.max_objs,), dtype=np.int64)
+            reg_mask = np.zeros((self.max_objs,), dtype=np.uint8)
+            ids = np.zeros((self.max_objs,), dtype=np.int64)
+            cls_tr_ids = np.zeros((self.num_classes, output_h, output_w), dtype=np.int64)
+            cls_id_map = np.full((1, output_h, output_w), -1, dtype=np.int64)
+            bbox_xys = np.zeros((self.max_objs, 4), dtype=np.float32)
+
+            draw_gaussian = draw_msra_gaussian if self.opt.mse_loss else draw_umich_gaussian
             
-            #
-            cls_id = int(label[0])
-            bbox[[0, 2]] = bbox[[0, 2]] * output_w
-            bbox[[1, 3]] = bbox[[1, 3]] * output_h
-            bbox_amodal = copy.deepcopy(bbox)
-            bbox_amodal[0] = bbox_amodal[0] - bbox_amodal[2] / 2.0
-            bbox_amodal[1] = bbox_amodal[1] - bbox_amodal[3] / 2.0
-            bbox_amodal[2] = bbox_amodal[0] + bbox_amodal[2]
-            bbox_amodal[3] = bbox_amodal[1] + bbox_amodal[3]
-            bbox[0] = np.clip(bbox[0], 0, output_w - 1)
-            bbox[1] = np.clip(bbox[1], 0, output_h - 1)
-            h = bbox[3]
-            w = bbox[2]
+            if self.opt.gc_with_roi:
+                classify_cls = []
+            else:
+                classify_cls = torch.zeros((self.max_objs), dtype=int)
+            
+            classify_ct = torch.zeros((self.max_objs, 2), dtype=int)    
+            class_box_lemur = torch.zeros(num_objs)
+            for k in range(num_objs):
+                label = labels[k]
+                # bbox = label[2:]
+                # TODO clean up, doesnt need to be in for loop, richards code for if label in same gt file as rest
+                bbox = label[2:6]
+                
+                #
+                cls_id = int(label[0])
+                bbox[[0, 2]] = bbox[[0, 2]] * output_w
+                bbox[[1, 3]] = bbox[[1, 3]] * output_h
+                bbox_amodal = copy.deepcopy(bbox)
+                bbox_amodal[0] = bbox_amodal[0] - bbox_amodal[2] / 2.0
+                bbox_amodal[1] = bbox_amodal[1] - bbox_amodal[3] / 2.0
+                bbox_amodal[2] = bbox_amodal[0] + bbox_amodal[2]
+                bbox_amodal[3] = bbox_amodal[1] + bbox_amodal[3]
+                bbox[0] = np.clip(bbox[0], 0, output_w - 1)
+                bbox[1] = np.clip(bbox[1], 0, output_h - 1)
+                h = bbox[3]
+                w = bbox[2]
 
-            bbox_xy = copy.deepcopy(bbox)
-            bbox_xy[0] = bbox_xy[0] - bbox_xy[2] / 2
-            bbox_xy[1] = bbox_xy[1] - bbox_xy[3] / 2
-            bbox_xy[2] = bbox_xy[0] + bbox_xy[2]
-            bbox_xy[3] = bbox_xy[1] + bbox_xy[3]
+                bbox_xy = copy.deepcopy(bbox)
+                bbox_xy[0] = bbox_xy[0] - bbox_xy[2] / 2
+                bbox_xy[1] = bbox_xy[1] - bbox_xy[3] / 2
+                bbox_xy[2] = bbox_xy[0] + bbox_xy[2]
+                bbox_xy[3] = bbox_xy[1] + bbox_xy[3]
 
-            if h > 0 and w > 0:
-                radius = gaussian_radius((math.ceil(h), math.ceil(w)))
-                radius = max(0, int(radius))
-                radius = 6 if self.opt.mse_loss else radius
-                #radius = self.opt.hm_gauss if self.opt.mse_loss else radius
-                #print("radius", radius)
-                # radius = max(1, int(radius)) if self.opt.mse_loss else radius
-                ct = np.array([bbox[0], bbox[1]], dtype=np.float32)
-                ct_int = ct.astype(int)
-                draw_gaussian(hm[cls_id], ct_int, radius)
-                if self.opt.ltrb:
-                    wh[
-                        k,
-                        (cls_id * 2, cls_id * 2 + 1) if self.wh_classes > 1 else (0, 1),
-                    ] = (
-                        ct[0] - bbox_amodal[0],
-                        ct[1] - bbox_amodal[1],
-                        bbox_amodal[2] - ct[0],
-                        bbox_amodal[3] - ct[1],
-                    )
-                else:  # only else for mcmot
-                    wh[
-                        k,
-                        (cls_id * 2, cls_id * 2 + 1) if self.wh_classes > 1 else (0, 1),
-                    ] = (1.0 * w, 1.0 * h)
-                ind[k] = ct_int[1] * output_w + ct_int[0]
-                reg[k] = ct - ct_int
-                reg_mask[k] = 1
-                # ids[k] = label[1]
-                # output feature map
-                cls_id_map[0][ct_int[1], ct_int[0]] = cls_id
-                # track ids
-                cls_tr_ids[cls_id][ct_int[1]][ct_int[0]] = label[1] - 1
-                # track id -1
-                ids[k] = label[1] - 1
+                if h > 0 and w > 0:
+                    radius = gaussian_radius((math.ceil(h), math.ceil(w)))
+                    radius = max(0, int(radius))
+                    radius = 6 if self.opt.mse_loss else radius
+                    #radius = self.opt.hm_gauss if self.opt.mse_loss else radius
+                    #print("radius", radius)
+                    # radius = max(1, int(radius)) if self.opt.mse_loss else radius
+                    ct = np.array([bbox[0], bbox[1]], dtype=np.float32)
+                    ct_int = ct.astype(int)
+                    draw_gaussian(hm[cls_id], ct_int, radius)
+                    if self.opt.ltrb:
+                        wh[
+                            k,
+                            (cls_id * 2, cls_id * 2 + 1) if self.wh_classes > 1 else (0, 1),
+                        ] = (
+                            ct[0] - bbox_amodal[0],
+                            ct[1] - bbox_amodal[1],
+                            bbox_amodal[2] - ct[0],
+                            bbox_amodal[3] - ct[1],
+                        )
+                    else:  # only else for mcmot
+                        wh[
+                            k,
+                            (cls_id * 2, cls_id * 2 + 1) if self.wh_classes > 1 else (0, 1),
+                        ] = (1.0 * w, 1.0 * h)
+                    ind[k] = ct_int[1] * output_w + ct_int[0]
+                    reg[k] = ct - ct_int
+                    reg_mask[k] = 1
+                    # ids[k] = label[1]
+                    # output feature map
+                    cls_id_map[0][ct_int[1], ct_int[0]] = cls_id
+                    # track ids
+                    cls_tr_ids[cls_id][ct_int[1]][ct_int[0]] = label[1] - 1
+                    # track id -1
+                    ids[k] = label[1] - 1
 
-                bbox_xys[k] = bbox_xy
-                    
-                if self.opt.gc_with_roi:
-                    if self.opt.use_gc:
-                        class_box_lemur[k] = torch.tensor(int(label[0]))
-                        if class_box_lemur[k] == 0:
-                            classify_cls.append(torch.tensor(int(label[6])))
+                    bbox_xys[k] = bbox_xy
+                        
+                    if self.opt.gc_with_roi:
+                        if self.use_gc:
+                            class_box_lemur[k] = torch.tensor(int(label[0]))
+                            if class_box_lemur[k] == 0:
+                                classify_cls.append(torch.tensor(int(label[6])))
+                                
+                    else:
+                        if self.use_gc and (label[0] == 0):
+                            classify_cls[k] = torch.tensor(label[6]).int()
+                            classify_ct[k] = torch.from_numpy(np.round(ct)).int()
+            
+                        
 
-                    
+                # gc_labels = self.gc_labels[k][files_index]
 
-
-                              
+            # FIXME for DEREK
+            # pose = torch.tensor(labels[:,1], dtype=int)
+            gc = torch.tensor([])
+            
+            if self.opt.gc_with_roi and self.use_gc:
+                if len(classify_cls) == 0:
+                    empty_frame = True
                 else:
-                    if self.opt.use_gc and (label[0] == 0):
-                        classify_cls[k] = torch.tensor(label[6]).int()
-                        classify_ct[k] = torch.from_numpy(np.round(ct)).int()
-        
-                    
+                    gc = torch.stack(classify_cls)
+            elif self.use_gc:
+                gc = classify_cls
 
-            # gc_labels = self.gc_labels[k][files_index]
-
-        # FIXME for DEREK
-        # pose = torch.tensor(labels[:,1], dtype=int)
-        gc = None
-        if self.opt.gc_with_roi:
-            gc = torch.stack(classify_cls)
         
+
+        ret = {
+                    "input": imgs,
+                    "hm": hm,
+                    "reg": reg,
+                    "wh": wh,
+                    "ind": ind,
+                    "reg_mask": reg_mask,
+                    "gc": gc,
+                    "gc_ct": classify_ct,
+                    "ids": ids,
+                    "cls_id_map": cls_id_map,
+                    "cls_tr_ids": cls_tr_ids,
+                    "bbox": bbox_xys,
+                    "box_lemur_class": class_box_lemur,
+                }
+        '''
         if self.opt.use_gc:
             if self.opt.gc_with_roi:
                 ret = {
@@ -854,4 +893,5 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
                 "cls_tr_ids": cls_tr_ids,
                 "bbox": bbox_xys,
             }
+        '''
         return ret

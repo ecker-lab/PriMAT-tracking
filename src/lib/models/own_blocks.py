@@ -36,21 +36,21 @@ class CNN(nn.Module):
 
 
 class LemurIdentityClassification(nn.Module):
-    def __init__(self, num_classes, emb_dim=3):
+    def __init__(self, num_classes, emb_dim=128):
         super().__init__()
 
         self.num_classes = num_classes
         #self.cnn = CNN(emb_dim=emb_dim, num_classes=num_classes)
-        #self.cnn = torchvision.models.resnet18(pretrained=True)
-        #num_ftrs = self.cnn.fc.in_features
-        # Here the size of each output sample is set to 2.
-        # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
-        #self.cnn.fc = nn.Linear(num_ftrs, self.num_classes)
-        self.cnn = torchvision.models.alexnet(pretrained=True)
-        num_features = self.cnn.classifier[6].in_features
+
+        self.cnn = torchvision.models.resnet18(pretrained=True)
+        num_ftrs = self.cnn.fc.in_features
+        self.cnn.fc = nn.Linear(num_ftrs, self.num_classes)
+        
+        #self.cnn = torchvision.models.alexnet(pretrained=True)
+        #num_features = self.cnn.classifier[6].in_features
 
         # Replace the last fully connected layer with a new one
-        self.cnn.classifier[6] = nn.Linear(num_features, num_classes)
+        #self.cnn.classifier[6] = nn.Linear(num_features, num_classes)
         
         self.softmax = nn.Softmax(dim=-1)
 
@@ -77,10 +77,8 @@ class LemurIdentityClassification(nn.Module):
         
         # Extract ROI features per ground truth box.
         roi_output = torchvision.ops.roi_pool(
-            input_features, [bbox * 4 for bbox in bboxes], output_size=[224,224]
+            input_features, [bbox * 4 for bbox in bboxes], output_size=[224,224] 
         )
-
-        #print("roi_output", roi_output.shape)
 
         # Extract classification feature vector per ROI box.
         class_logits = self.cnn(roi_output).view(-1, self.num_classes)

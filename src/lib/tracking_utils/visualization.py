@@ -135,13 +135,6 @@ def plot_tracking(
                 (0, 0, 255),
                 thickness=2,
             )
-        if cls_id == 0:
-            if (len(cls_tlwhs) != len(gc_scores_dict[clsID4GC])) or (len(cls_tlwhs) != len(gcs_dict[cls_id])):
-                print(frame_id)
-                print(len(cls_tlwhs) != len(gc_scores_dict))
-                print("cls_tlwhs", len(cls_tlwhs))
-                print("gcs_scores_dict", len(gc_scores_dict[clsID4GC]))
-                print("gcs_dict", len(gcs_dict[cls_id]))
         
         
 

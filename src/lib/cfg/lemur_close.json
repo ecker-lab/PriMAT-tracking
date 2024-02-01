@@ -1,0 +1,7 @@
+{
+	"root": "/usr/users/agecker/datasets/LemurLabellingNov22/",
+	"train":
+	{
+		"lemur_box_train": "./data/lemur_close.train"
+	}
+}

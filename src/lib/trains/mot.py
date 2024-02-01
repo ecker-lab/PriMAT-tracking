@@ -40,19 +40,19 @@ class MotLoss(torch.nn.Module):
             if opt.cat_spec_wh
             else self.crit_reg
         )
-        if opt.use_gc:
-            if opt.gc_lbl_cnts:
-                gc_lbl_cnt_values = np.fromiter(opt.gc_lbl_cnts.values(), dtype=int)
-                cls_weights = gc_lbl_cnt_values.sum() / (
-                    opt.num_gc_cls * gc_lbl_cnt_values
-                )
-                cls_weights = torch.from_numpy(cls_weights).to(dtype=torch.float32)
-                print(cls_weights)
-            else:
-                cls_weights = None
-            self.crit_gc = torch.nn.CrossEntropyLoss(
-                weight=cls_weights, reduction="sum"
+        #if opt.use_gc:
+        if opt.gc_lbl_cnts:
+            gc_lbl_cnt_values = np.fromiter(opt.gc_lbl_cnts.values(), dtype=int)
+            cls_weights = gc_lbl_cnt_values.sum() / (
+                opt.num_gc_cls * gc_lbl_cnt_values
             )
+            cls_weights = torch.from_numpy(cls_weights).to(dtype=torch.float32)
+            print(cls_weights)
+        else:
+            cls_weights = None
+        self.crit_gc = torch.nn.CrossEntropyLoss(
+            weight=cls_weights, reduction="sum"
+        )
 
         self.opt = opt
 
@@ -82,7 +82,8 @@ class MotLoss(torch.nn.Module):
 
     def forward(self, outputs, batch):
         hm_loss, wh_loss, off_loss, reid_loss = 0, 0, 0, 0
-        if self.opt.use_gc:
+        #if self.opt.use_gc:
+        if batch['gc'].numel() > 0:
             gc_loss = 0
 
         for s in range(self.opt.num_stacks):
@@ -135,7 +136,8 @@ class MotLoss(torch.nn.Module):
                         cls_id_target.nelement()
                     )
 
-            if self.opt.use_gc:
+            #if self.opt.use_gc:
+            if batch['gc'].numel() > 0:
 
                 if self.opt.gc_with_roi:
                     gc_loss += (
@@ -175,15 +177,19 @@ class MotLoss(torch.nn.Module):
             "wh_loss": wh_loss,
             "off_loss": off_loss,
             "id_loss": reid_loss,
+            "gc_loss": loss * 0
         }
 
-        if self.opt.use_gc:
-            loss += 10 * gc_loss
-
-            if self.opt.train_only_gc:
-                loss = gc_loss
-
+        if self.opt.train_only_gc:
+            loss = gc_loss
             loss_stats.update({"loss": loss, "gc_loss": gc_loss})
+        else:
+            #if self.opt.use_gc:
+            if batch['gc'].numel() > 0:
+                loss += 10 * gc_loss
+
+                loss_stats.update({"loss": loss, "gc_loss": gc_loss})
+        
 
         return loss, loss_stats
         

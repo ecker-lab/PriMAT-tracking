@@ -1,19 +1,19 @@
 cd /usr/users/vogg/monkey-tracking-in-the-wild/src
 
-#--load_model '../models/hrnetv2_w32_imagenet_pretrained.pth'\
-python train.py mot --exp_id lemurs_nopretrain\
-                    --num_epochs 500\
-                    --lr_step 300\
+python train.py mot --exp_id lemurs_close\
+                    --load_model '../models/hrnetv2_w32_imagenet_pretrained.pth'\
+                    --num_epochs 200\
+                    --lr_step 150\
                     --lr '1e-4'\
-                    --data_cfg '../src/lib/cfg/lemur_box.json'\
+                    --data_cfg '../src/lib/cfg/lemur_close.json'\
                     --store_opt\
                     --arch hrnet_32\
                     --gpus 0\
-                    --batch_size 2\
+                    --batch_size 1\
                     --data_dir '/usr/users/vogg/Labelling/Lemurs/'\
                     --seed 2\
                     --reid_cls_names lemur,box\
-                    --val_intervals 20\
+                    --val_intervals 50\
                     --save_all
                     # --resume\
                     #--use_gc\

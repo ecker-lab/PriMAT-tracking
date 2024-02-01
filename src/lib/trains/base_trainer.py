@@ -19,9 +19,11 @@ class ModleWithLoss(torch.nn.Module):
 
     def forward(self, batch):
         outputs = self.model(batch["input"])
-        if "gc" in self.model.heads:
+        #if "gc" in self.model.heads:
+        if batch['gc'].numel() > 0:
             if self.roi:
-                outputs[-1]["gc_pred"] = self.model.gc_lin(batch['input'], batch) #outputs[-1]["gc"]
+                outputs[-1]["gc_pred"] = self.model.gc_lin(batch['input'], batch) 
+                #outputs[-1]["gc_pred"] = self.model.gc_lin(outputs[-1]["gc"], batch)
             else:
                 outputs[-1]["gc_pred"] = self.model.gc_lin(
                     outputs[-1]["gc"], batch["cls_id_map"], batch["gc"], batch["gc_ct"]
@@ -72,6 +74,9 @@ class BaseTrainer(object):
         bar = Bar("{}/{}".format(opt.task, opt.exp_id), max=num_iters)
         end = time.time()
         for iter_id, batch in enumerate(data_loader):
+
+            # check if batch['gc'] not None
+            # Freeze self.model_with_loss.model -> parameters depending on task
             if iter_id >= num_iters:
                 break
             data_time.update(time.time() - end)
@@ -84,9 +89,10 @@ class BaseTrainer(object):
             loss = loss.mean()
 
             if phase == "train":
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+                with torch.set_grad_enabled(True):
+                    self.optimizer.zero_grad()
+                    loss.backward()
+                    self.optimizer.step()
             # added for eval
             else:
                 if "gc" in self.loss_stats:
@@ -123,6 +129,8 @@ class BaseTrainer(object):
             if opt.test:
                 self.save_result(output, batch, results)
             del output, loss, loss_stats, batch
+
+        model_with_loss.eval()
 
         bar.finish()
         ret = {k: v.avg for k, v in avg_loss_stats.items()}

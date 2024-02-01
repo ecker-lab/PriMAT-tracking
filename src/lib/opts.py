@@ -63,7 +63,7 @@ class opts(object):
                              help='use color augmentation - should be false for Lemur ID')
     
     # additional heads
-    self.parser.add_argument('--gc_dim', type=int, default=3,
+    self.parser.add_argument('--gc_dim', type=int, default=128,
                              help='feature dim for gc')
 
     # input
@@ -137,7 +137,7 @@ class opts(object):
 
     # multi-class
     self.parser.add_argument('--reid_cls_names',
-                                default='monkey,patch,kong,branch,XBI',
+                                default='lemur,box',
                                 help='Define the names for the tracked classes.')
 
     # gc head (general classification)

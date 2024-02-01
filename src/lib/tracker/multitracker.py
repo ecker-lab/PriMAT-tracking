@@ -209,11 +209,25 @@ class JDETracker(object):
         print('Creating model...')
         if opt.use_gc:
             self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=opt.num_gc_cls, clsID4GC=opt.clsID4GC, gc_with_roi=opt.gc_with_roi)
+            #this line can be removed, is only needed for a fair evaluation of the ID models
+            model2 = create_model('hrnet_32', heads =  {'hm': 2, 'wh': 2, 'id': 128, 'reg': 2, 'gc': 3}, 
+                     head_conv = 256, num_gc_cls = 8, clsID4GC = 0, gc_with_roi = True)
+
+            model2 = load_model(model2, '../exp/mot/lemur_ids_additional1/model_22.pth')
+            model2 = model2.to("cuda")
+            model2.eval()
         else:
             self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=None, clsID4GC=None, gc_with_roi=False)
         self.model = load_model(self.model, opt.load_model)
         self.model = self.model.to(opt.device)
         self.model.eval()
+
+        #this line can be removed, is only needed for a fair evaluation of the ID models
+        for (name1, module1), (name2, module2) in zip(self.model.named_modules(), model2.named_modules()):
+            if isinstance(module1, torch.nn.BatchNorm2d) and (not "gc_lin" in name1):
+                module1.running_mean = module2.running_mean.clone()
+                module1.running_var = module2.running_var.clone()
+
 
         self.tracked_tracks_dict = defaultdict(list)
         self.lost_tracks_dict = defaultdict(list)
@@ -379,7 +393,7 @@ class JDETracker(object):
 
             
                 '''Detections'''
-                if self.opt.use_gc and cls_id == self.opt.clsID4GC:
+                if self.opt.use_gc and (cls_id == self.opt.clsID4GC):
                     cls_detects = [Track(Track.tlbr_to_tlwh(tlbrs[:4]), tlbrs[4], feat, cls_id, self.opt.track_buffer, gc)
                     for (tlbrs, feat, gc) in zip(cls_dets[:, :5], cls_id_feature, output['gc_pred'])]
                 else:
@@ -402,15 +416,15 @@ class JDETracker(object):
             # Predict the current location with KF
             Track.multi_predict(track_pool_dict[cls_id])
 
-
             emb_dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detects)
             iou_dists = matching.iou_distance(track_pool_dict[cls_id], cls_detects)
-
             dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
-            iou_dists_ind = ((iou_dists > 0.8) + 1) ** 5
+            iou_dists_ind = (iou_dists > 0.6) #prevent box jumps
 
             #pointwise multiplication of the two distance matrices
-            dists = np.multiply(dists, iou_dists_ind)
+            dists = dists + iou_dists_ind #np.multiply(dists, iou_dists_ind)
+            
+            #print(dists)
 
             
             if iou_dists.size == 0:
@@ -452,7 +466,7 @@ class JDETracker(object):
                 cls_detects = [cls_detects[i] for i in u_detection]
                 r_tracked_tracks = [r_tracked_tracks_last_seen[cls_id][i] for i in u_track] #r_tracked_tracks_last_seen[cls_id][i] if there is no use_buffered
                 dists = matching.iou_distance(r_tracked_tracks, cls_detects)
-                matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.9) # more relaxed threshold
+                matches, u_track, u_detection = matching.linear_assignment(dists, thresh=0.5) # more relaxed threshold
 
                 for i_tracked, i_det in matches:
                     track = r_tracked_tracks[i_tracked]

@@ -30,7 +30,8 @@ def demo(opt):
     logger.info('Starting tracking...')
     dataloader = datasets.LoadVideo(opt.input_video, opt.img_size)
     video_name = os.path.splitext(os.path.basename(opt.input_video))[0]
-    result_filename = os.path.join(result_root, 'results.txt')
+    #result_filename = os.path.join(result_root, 'results.txt')
+    result_filename = os.path.join(result_root, video_name+'.txt')
 
     frame_dir = None if opt.output_format == 'text' else osp.join(result_root, 'frame')
 
