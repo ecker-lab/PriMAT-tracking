@@ -22,7 +22,7 @@ class ModleWithLoss(torch.nn.Module):
         #if "gc" in self.model.heads:
         if batch['gc'].numel() > 0:
             if self.roi:
-                outputs[-1]["gc_pred"] = self.model.gc_lin(batch['input'], batch) 
+                outputs[-1]["gc_pred"], _ = self.model.gc_lin(batch['input'], batch) 
                 #outputs[-1]["gc_pred"] = self.model.gc_lin(outputs[-1]["gc"], batch)
             else:
                 outputs[-1]["gc_pred"] = self.model.gc_lin(
@@ -130,7 +130,7 @@ class BaseTrainer(object):
                 self.save_result(output, batch, results)
             del output, loss, loss_stats, batch
 
-        model_with_loss.eval()
+        #model_with_loss.eval()
 
         bar.finish()
         ret = {k: v.avg for k, v in avg_loss_stats.items()}

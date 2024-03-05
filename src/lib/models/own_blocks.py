@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import random
 from models.utils import _tranpose_and_gather_feat
 
 
@@ -43,8 +44,11 @@ class LemurIdentityClassification(nn.Module):
         #self.cnn = CNN(emb_dim=emb_dim, num_classes=num_classes)
 
         self.cnn = torchvision.models.resnet18(pretrained=True)
-        num_ftrs = self.cnn.fc.in_features
-        self.cnn.fc = nn.Linear(num_ftrs, self.num_classes)
+        #num_ftrs = self.cnn.fc.in_features
+
+        self.cnn_base = nn.Sequential(*list(self.cnn.children())[:-1])
+
+        self.classification_layer = nn.Linear(self.cnn.fc.in_features, self.num_classes)
         
         #self.cnn = torchvision.models.alexnet(pretrained=True)
         #num_features = self.cnn.classifier[6].in_features
@@ -66,14 +70,95 @@ class LemurIdentityClassification(nn.Module):
         
         #Training
         if gt_labels is not None:
+
             # Prepare correct format for bboxes ((B * [K, 4]), List )
             bboxes = []
+
+            
             for i in range(batch_size):
                 mask = gt_labels["reg_mask"][i].bool()
                 data = gt_labels["bbox"][i][mask]
                 data = data[gt_labels["box_lemur_class"][i] == 0]
                 bboxes.append(data)
+            '''
+            for i in range(batch_size):
+                mask = gt_labels["reg_mask"][i].bool()
+                data = gt_labels["bbox"][i][mask]
+                data = data[gt_labels["box_lemur_class"][i] == 0]
+                
+                # Calculate new quadratic bounding boxes
+                new_bboxes = []
+                for bbox in data:
+                    x1, y1, x2, y2 = bbox.tolist()
+                    width = x2 - x1
+                    height = y2 - y1
+                    center_x = (x1 + x2) / 2
+                    center_y = (y1 + y2) / 2
+                    
+                    # Determine the longer side
+                    max_side = max(width, height)
+                    
+                    jitter = random.uniform(0.8, 1.0) # this makes the squared bounding boxes slightly larger or smaller 
+                    #jitter = 1
+                    new_width = max_side * jitter
+                    new_height = max_side * jitter
 
+                    move = 0
+                    #move = random.uniform(-20, 20)
+                    center_x = center_x + move
+                    center_y = center_y + move
+                    
+                    # Calculate new coordinates
+                    new_x1 = center_x - new_width / 2
+                    new_y1 = center_y - new_height / 2
+                    new_x2 = center_x + new_width / 2
+                    new_y2 = center_y + new_height / 2
+
+                    
+                    new_bbox = [new_x1, new_y1, new_x2, new_y2]
+                    new_bboxes.append(new_bbox)
+                
+                bboxes.append(torch.tensor(new_bboxes).cuda())
+            '''
+            
+        else:
+
+            def convert_to_quadratic(bbox, jitter = 1, move = 0):
+                x1, y1, x2, y2 = bbox.tolist()
+                width = x2 - x1
+                height = y2 - y1
+                center_x = (x1 + x2) / 2
+                center_y = (y1 + y2) / 2
+                
+                # Determine the longer side
+                max_side = max(width, height)
+                
+                #jitter = random.uniform(0.8, 1.0) # this makes the squared bounding boxes slightly larger or smaller 
+                jitter = 1
+                new_width = max_side * jitter
+                new_height = max_side * jitter
+
+                #move = random.uniform(-20, 20)
+                move = 0
+                center_x = center_x + move
+                center_y = center_y + move
+                
+                # Calculate new coordinates
+                new_x1 = center_x - new_width / 2
+                new_y1 = center_y - new_height / 2
+                new_x2 = center_x + new_width / 2
+                new_y2 = center_y + new_height / 2
+                return [new_x1, new_y1, new_x2, new_y2]
+
+            # Apply the conversion for each bounding box in the tensor
+            new_bboxes = []
+            for bbox_list in bboxes:
+                new_bbox_list = []
+                for bbox in bbox_list:
+                    new_bbox_list.append(convert_to_quadratic(bbox))
+                new_bboxes.append(torch.tensor(new_bbox_list).cuda())
+
+            bboxes = new_bboxes
         
         # Extract ROI features per ground truth box.
         roi_output = torchvision.ops.roi_pool(
@@ -81,13 +166,22 @@ class LemurIdentityClassification(nn.Module):
         )
 
         # Extract classification feature vector per ROI box.
-        class_logits = self.cnn(roi_output).view(-1, self.num_classes)
+        features = self.cnn_base(roi_output)
+
+        embedding = features.view(features.size(0), -1)
+
+        class_logits = self.classification_layer(embedding)
+
+        #class_logits = self.cnn_base(roi_output).view(-1, self.num_classes)
+        #class_logits = class_logits.view(-1, self.num_classes)
 
         if gt_labels is None:
             # Compute classification logits.
             class_logits = self.softmax(class_logits)
 
-        return class_logits
+        return class_logits, embedding
+    
+    
 
 
 

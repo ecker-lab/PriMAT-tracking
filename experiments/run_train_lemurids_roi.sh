@@ -1,10 +1,12 @@
 cd src
-python train.py mot --exp_id 'lemur_ids_cleaned1_with_tracking/'\
+
+
+python train.py mot --exp_id 'lemur_ids_cleaned1_squareroi'\
                     --gpus 0 \
                     --batch_size 1\
                     --load_model '../models/hrnet32_lemur_sep22.pth'\
-                    --num_epochs 60\
-                    --lr_step 40\
+                    --num_epochs 50\
+                    --lr_step 30\
                     --lr '1e-5'\
                     --data_cfg '../src/lib/cfg/lemur_ids_cleaned1.json'\
                     --store_opt\
@@ -17,8 +19,8 @@ python train.py mot --exp_id 'lemur_ids_cleaned1_with_tracking/'\
                     --gc_with_roi\
                     --save_all\
                     --val_intervals 2\
-                    --gc_dim 3
-                    #--train_only_gc
+                    --gc_dim 3\
+                    --train_only_gc
                     #--no_aug_hsv\
                     #
                     #--enable_tb\

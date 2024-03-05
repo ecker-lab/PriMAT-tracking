@@ -1,7 +1,7 @@
 {
-	"root": "/local/eckerlab/LemurLabellingNov22/",
+	"root": "/local/eckerlab/LemurBoxTracking/",
 	"train":
 	{
-		"lemur_box_train": "/local/eckerlab/LemurLabellingNov22/lemur_full.train"
+		"lemur_box_train": "/local/eckerlab/LemurBoxTracking/lemur_full.train"
 	}
 }

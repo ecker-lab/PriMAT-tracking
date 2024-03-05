@@ -1,0 +1,7 @@
+{
+	"root": "/usr/users/vogg/Labelling/Lemurs/LemurBoxTracking",
+	"train":
+	{
+		"lemur_box_train": "./data/lemur_full.train"
+	}
+}

@@ -1,0 +1,38 @@
+name: prim
+channels:
+  - conda-forge
+  - pytorch
+  - anaconda
+  - defaults
+dependencies:
+  - python=3.8
+  - numpy==1.21
+  - pip
+  - gcc=8
+  - gxx=8
+  - gxx_linux-64
+  - cmake
+  - pytorch==1.7
+  - torchvision==0.8
+  - cudatoolkit=10.2
+  - tensorboard
+  - ipykernel
+  - scikit-learn
+  - scikit-image
+  - pip:
+    - cython
+    - yacs
+    - opencv-python
+    - PyYAML
+    - cython-bbox
+    - scipy
+    - numba
+    - progress
+    - motmetrics
+    - matplotlib
+    - lap
+    - openpyxl
+    - Pillow
+    - tensorboardX
+    - fvcore
+    - adjustText

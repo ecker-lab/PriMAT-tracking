@@ -2,7 +2,7 @@
 #SBATCH --gres=gpu:rtx5000:4
 #SBATCH --qos=long
 #SBATCH -p gpu
-#SBATCH -t 5-00:00:00
+#SBATCH -t 3-00:00:00
 #SBATCH -o /usr/users/vogg/monkey-tracking-in-the-wild/slurm_files/job-%J.out
 
 cd /local/eckerlab/

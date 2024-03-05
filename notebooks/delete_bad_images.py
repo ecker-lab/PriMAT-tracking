@@ -43,12 +43,12 @@ def draw_on_image(image, label_path, ending = ".jpg"):
 
 def main():
     # Specify the path to the folder containing images and labels
-    folder_path = "/usr/users/vogg/Labelling/Lemurs/Individual_imgs/automated_labels/"
+    folder_path = "/usr/users/vogg/Labelling/Lemurs/Individual_imgs/cleaned_labels1/"
 
     # Get a list of image files in the folder
     image_files = [f for f in os.listdir(folder_path+"images") if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
 
-    for image_file in image_files:
+    for i, image_file in enumerate(image_files):
         image_path = os.path.join(folder_path, "images", image_file)
         label_path = os.path.join(folder_path, "labels_with_ids", image_file.replace(os.path.splitext(image_file)[-1], '.txt'))
 
@@ -63,6 +63,8 @@ def main():
         # Draw bounding boxes on the image
         image = draw_on_image(image, label_path)
 
+
+        cv2.putText(image, str(i), (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         # Show the image
         cv2.imshow("Image", image)
 

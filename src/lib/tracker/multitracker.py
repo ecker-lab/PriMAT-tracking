@@ -223,10 +223,11 @@ class JDETracker(object):
         self.model.eval()
 
         #this line can be removed, is only needed for a fair evaluation of the ID models
-        for (name1, module1), (name2, module2) in zip(self.model.named_modules(), model2.named_modules()):
-            if isinstance(module1, torch.nn.BatchNorm2d) and (not "gc_lin" in name1):
-                module1.running_mean = module2.running_mean.clone()
-                module1.running_var = module2.running_var.clone()
+        if opt.use_gc:
+            for (name1, module1), (name2, module2) in zip(self.model.named_modules(), model2.named_modules()):
+                if isinstance(module1, torch.nn.BatchNorm2d) and (not "gc_lin" in name1):
+                    module1.running_mean = module2.running_mean.clone()
+                    module1.running_var = module2.running_var.clone()
 
 
         self.tracked_tracks_dict = defaultdict(list)
@@ -294,7 +295,7 @@ class JDETracker(object):
         lost_tracks_dict = defaultdict(list)
         removed_tracks_dict = defaultdict(list)
         output_tracks_dict = defaultdict(list)
-
+        
         width = img0.shape[1]
         height = img0.shape[0]
         inp_height = im_blob.shape[2]
@@ -373,7 +374,7 @@ class JDETracker(object):
                 if self.opt.use_gc :
                     gc_inds = inds[:, cls_inds_mask[self.opt.clsID4GC]]
                     if self.opt.gc_with_roi:
-                        output['gc_pred'] = self.model.gc_lin(im_blob, bboxes=[torch.tensor(cls_dets_orig[:, :4] / 4).cuda()])
+                        output['gc_pred'], _ = self.model.gc_lin(im_blob, bboxes=[torch.tensor(cls_dets_orig[:, :4] / 4).cuda()])
                         output['gc_pred'] = output['gc_pred'].cpu().detach().numpy()
                     else:
                         output['gc_pred'] = self.model.gc_lin(output['gc'], gc_inds)

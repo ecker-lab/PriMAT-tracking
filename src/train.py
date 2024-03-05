@@ -1,11 +1,11 @@
-from __future__ import absolute_import
-
+from __future__ import absolute_import, print_function
+import torch
 import _init_paths
 
 import os
 
 import json
-import torch
+
 import torch.utils.data
 from torchvision.transforms import transforms as T
 from opts import opts

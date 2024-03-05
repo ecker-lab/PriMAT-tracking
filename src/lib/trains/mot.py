@@ -140,6 +140,7 @@ class MotLoss(torch.nn.Module):
             if batch['gc'].numel() > 0:
 
                 if self.opt.gc_with_roi:
+
                     gc_loss += (
                         self.crit_gc(output["gc_pred"], batch["gc"].flatten())
                         / batch["gc"].numel()

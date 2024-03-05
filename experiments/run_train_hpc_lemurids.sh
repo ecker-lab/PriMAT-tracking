@@ -51,5 +51,7 @@ done
 
 cd ..
 
+rm -r /local/eckerlab/Individual_imgs
+
 
 #Amb,Cam,Cha,Che,Flo,Gen,Geo,Har,Her,Isa,Kai,Lat,Mya,Pal,Rab,Red,Sap,Taj

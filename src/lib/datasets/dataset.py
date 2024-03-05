@@ -737,7 +737,7 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
                 classify_cls = torch.zeros((self.max_objs), dtype=int)
             
             classify_ct = torch.zeros((self.max_objs, 2), dtype=int)    
-            class_box_lemur = torch.zeros(num_objs)
+            class_box_lemur = torch.zeros((num_objs,))
             for k in range(num_objs):
                 label = labels[k]
                 # bbox = label[2:]
@@ -829,7 +829,7 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
             elif self.use_gc:
                 gc = classify_cls
 
-        
+
 
         ret = {
                     "input": imgs,
@@ -846,6 +846,7 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
                     "bbox": bbox_xys,
                     "box_lemur_class": class_box_lemur,
                 }
+
         '''
         if self.opt.use_gc:
             if self.opt.gc_with_roi:
