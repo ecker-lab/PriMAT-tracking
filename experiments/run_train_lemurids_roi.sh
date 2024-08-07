@@ -20,7 +20,8 @@ python train.py mot --exp_id 'lemur_ids_cleaned1_squareroi'\
                     --save_all\
                     --val_intervals 2\
                     --gc_dim 3\
-                    --train_only_gc
+                    --train_only_gc\
+                    --squared_bboxes
                     #--no_aug_hsv\
                     #
                     #--enable_tb\

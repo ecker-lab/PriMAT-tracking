@@ -1,8 +1,8 @@
 cd src
 python train.py mot --exp_id macaquecp_hrnet_pretrained\
                     --load_model '../models/hrnetv2_w32_imagenet_pretrained.pth'\
-                    --num_epochs 150\
-                    --lr_step 100\
+                    --num_epochs 500\
+                    --lr_step 200\
                     --lr '1e-4'\
                     --data_cfg '../src/lib/cfg/macaquecopypaste.json'\
                     --store_opt\
@@ -12,7 +12,7 @@ python train.py mot --exp_id macaquecp_hrnet_pretrained\
                     --data_dir '/local/eckerlab/'\
                     --seed 13\
                     --reid_cls_names macaque\
-                    --val_intervals 10\
+                    --val_intervals 20\
                     --save_all
                     # --resume\
                     #--use_gc\

@@ -11,12 +11,16 @@ class opts(object):
     self.parser = argparse.ArgumentParser()
     
     # basic experiment setting
-    self.parser.add_argument('task', default='mot', help='mot') # was task without -- before
+    self.parser.add_argument('task', default='mot', help='mot') 
     self.parser.add_argument('--dataset', default='jde', help='jde')
     self.parser.add_argument('--exp_id', default='default')
     self.parser.add_argument('--test', action='store_true')
     self.parser.add_argument('--load_model', default='',
                              help='path to pretrained model')
+    self.parser.add_argument('--load_tracking_model', default='',
+                             help='path to pretrained tracking model')
+    self.parser.add_argument('--load_id_model', default='',
+                             help='path to pretrained id model')
     self.parser.add_argument('--resume', action='store_true',
                              help='resume an experiment. '
                                   'Reloaded the optimizer parameter and '
@@ -61,7 +65,16 @@ class opts(object):
                              help='feature dim for reid')
     self.parser.add_argument('--no_aug_hsv', action = "store_false",
                              help='use color augmentation - should be false for Lemur ID')
-    
+    self.parser.add_argument('--squared_bboxes', action = "store_true", 
+                             help = 'should squared bounding boxes be cut out for identification, or should precise bounding boxes be transformed into square ones')
+    self.parser.add_argument('--move_px', type=int, default=0,
+                             help='boxes are moved by random value between -move_px and +move_px during training for individual ID')
+    self.parser.add_argument('--zoom_min', type=float, default=1,
+                             help='boxes are zoomed in by random value between -zoom_min and +zoom_max during training for individual ID')
+    self.parser.add_argument('--zoom_max', type=float, default=1,
+                             help='boxes are zoomed in by random value between -zoom_min and +zoom_max during training for individual ID')
+
+
     # additional heads
     self.parser.add_argument('--gc_dim', type=int, default=128,
                              help='feature dim for gc')

@@ -180,6 +180,98 @@ class LoadVideo:  # for inference
         return self.vn  # number of files
 
 
+
+
+class LoadImagesAndBoxes:  # for inference
+    def __init__(self, root, path, valset = "MacaquePose", img_size=(1088, 608)):
+        #if os.path.isdir(path):
+        #    image_format = ['.jpg', '.jpeg', '.png', '.tif']
+        #    self.files = sorted(glob.glob('%s/*.*' % path))
+        #   self.files = list(filter(lambda x: os.path.splitext(x)[1].lower() in image_format, self.files))
+        #elif os.path.isfile(path):
+        #    self.files = [path]
+        
+        
+        with open(path, 'r') as file:
+            self.files = file.readlines()
+            
+            
+            
+            # for each line of one file: 1. build complete path 2. strip '\n' character 3. put back into list -> at position 'ds' are all images from one of these list files
+            self.files = [osp.join(root, x.strip()) for x in self.files]
+            # get rid of empty lines
+            self.files = list(filter(lambda x: len(x) > 0, self.files))
+            self.files = [x.replace("MacaquePose", valset) for x in self.files]
+
+            
+            
+            
+        self.label_files = [
+                x.replace('images', 'labels_with_ids').replace('.png', '.txt').replace('.jpg', '.txt').replace('.JPG', '.txt')
+                for x in self.files]
+
+        self.nF = len(self.files)  # number of image files
+        self.width = img_size[0]
+        self.height = img_size[1]
+        self.count = 0
+
+        assert self.nF > 0, 'No images found in ' + path
+
+    def __iter__(self):
+        self.count = -1
+        return self
+
+    def __next__(self):
+        self.count += 1
+        if self.count == self.nF:
+            raise StopIteration
+        img_path = self.files[self.count]
+        label_path = self.label_files[self.count]
+        
+        labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 6)
+
+        # Read image
+        img0 = cv2.imread(img_path)  # BGR
+        #assert img0 is not None, 'Failed to load ' + img_path
+        if img0 is None:
+            raise StopIteration
+        
+        # Padded resize
+        img, _, _, _ = letterbox(img0, height=self.height, width=self.width)
+
+        # Normalize RGB
+        img = img[:, :, ::-1].transpose(2, 0, 1)
+        img = np.ascontiguousarray(img, dtype=np.float32)
+        img /= 255.0
+
+        # cv2.imwrite(img_path + '.letterbox.jpg', 255 * img.transpose((1, 2, 0))[:, :, ::-1])  # save letterbox image
+        return img_path, img, img0, labels0
+
+    def __getitem__(self, idx):
+        idx = idx % self.nF
+        img_path = self.files[idx]
+        label_path = self.label_files[idx]
+        
+        labels0 = np.loadtxt(label_path, dtype=np.float32).reshape(-1, 6)
+
+        # Read image
+        img0 = cv2.imread(img_path)  # BGR
+        assert img0 is not None, 'Failed to load ' + img_path
+
+        # Padded resize
+        img, _, _, _ = letterbox(img0, height=self.height, width=self.width)
+
+        # Normalize RGB
+        img = img[:, :, ::-1].transpose(2, 0, 1)
+        img = np.ascontiguousarray(img, dtype=np.float32)
+        img /= 255.0
+
+        return img_path, img, img0, labels0
+
+    def __len__(self):
+        return self.nF  # number of files
+
+
 class LoadImagesAndLabels:  # for training
     def get_data(self, img_path, label_path, aug_hsv=True):
         height = self.height
@@ -737,7 +829,8 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
                 classify_cls = torch.zeros((self.max_objs), dtype=int)
             
             classify_ct = torch.zeros((self.max_objs, 2), dtype=int)    
-            class_box_lemur = torch.zeros((num_objs,))
+            class_box_lemur = torch.zeros((num_objs,), dtype=int) # make it usable for higher batch sizes :(
+
             for k in range(num_objs):
                 label = labels[k]
                 # bbox = label[2:]
@@ -801,7 +894,6 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
                     ids[k] = label[1] - 1
 
                     bbox_xys[k] = bbox_xy
-                        
                     if self.opt.gc_with_roi:
                         if self.use_gc:
                             class_box_lemur[k] = torch.tensor(int(label[0]))
@@ -812,6 +904,9 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
                         if self.use_gc and (label[0] == 0):
                             classify_cls[k] = torch.tensor(label[6]).int()
                             classify_ct[k] = torch.from_numpy(np.round(ct)).int()
+
+            if (len(classify_cls) == 0): # or torch.all(classify_ct == 0)
+                empty_frame = True
             
                         
 
@@ -819,6 +914,8 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
 
             # FIXME for DEREK
             # pose = torch.tensor(labels[:,1], dtype=int)
+            
+            
             gc = torch.tensor([])
             
             if self.opt.gc_with_roi and self.use_gc:
@@ -828,8 +925,8 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
                     gc = torch.stack(classify_cls)
             elif self.use_gc:
                 gc = classify_cls
-
-
+            
+            
 
         ret = {
                     "input": imgs,
@@ -844,55 +941,9 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
                     "cls_id_map": cls_id_map,
                     "cls_tr_ids": cls_tr_ids,
                     "bbox": bbox_xys,
-                    "box_lemur_class": class_box_lemur,
                 }
 
-        '''
         if self.opt.use_gc:
-            if self.opt.gc_with_roi:
-                ret = {
-                    "input": imgs,
-                    "hm": hm,
-                    "reg": reg,
-                    "wh": wh,
-                    "ind": ind,
-                    "reg_mask": reg_mask,
-                    "gc": torch.stack(classify_cls),
-                    "ids": ids,
-                    "cls_id_map": cls_id_map,
-                    "cls_tr_ids": cls_tr_ids,
-                    "bbox": bbox_xys,
-                    "box_lemur_class": class_box_lemur,
-                }
-            else:
+            ret["box_lemur_class"] = class_box_lemur
 
-                ret = {
-                    "input": imgs,
-                    "hm": hm,
-                    "reg": reg,
-                    "wh": wh,
-                    "ind": ind,
-                    "reg_mask": reg_mask,
-                    "gc": classify_cls,
-                    "gc_ct": classify_ct,
-                    "ids": ids,
-                    "cls_id_map": cls_id_map,
-                    "cls_tr_ids": cls_tr_ids,
-                    "bbox": bbox_xys,
-                    "box_lemur_class": class_box_lemur,
-                }
-        else:
-            ret = {
-                "input": imgs,
-                "hm": hm,
-                "reg": reg,
-                "wh": wh,
-                "ind": ind,
-                "reg_mask": reg_mask,
-                "ids": ids,
-                "cls_id_map": cls_id_map,
-                "cls_tr_ids": cls_tr_ids,
-                "bbox": bbox_xys,
-            }
-        '''
         return ret

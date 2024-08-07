@@ -11,18 +11,23 @@ from utils.utils import AverageMeter
 
 
 class ModleWithLoss(torch.nn.Module):
-    def __init__(self, model, loss, roi=False):
+    def __init__(self, model, loss, roi=False, square_bboxes = False, move_px = 0, zoom_min = 1, zoom_max = 1):
         super(ModleWithLoss, self).__init__()
         self.model = model
         self.loss = loss
         self.roi = roi
+        self.square_bboxes = square_bboxes
+        self.move_px = move_px
+        self.zoom_min = zoom_min
+        self.zoom_max = zoom_max
 
     def forward(self, batch):
         outputs = self.model(batch["input"])
         #if "gc" in self.model.heads:
         if batch['gc'].numel() > 0:
             if self.roi:
-                outputs[-1]["gc_pred"], _ = self.model.gc_lin(batch['input'], batch) 
+                outputs[-1]["gc_pred"], _ = self.model.gc_lin(batch['input'], batch, square_bboxes=self.square_bboxes, 
+                                                              move_px = self.move_px, zoom_min = self.zoom_min, zoom_max = self.zoom_max) 
                 #outputs[-1]["gc_pred"] = self.model.gc_lin(outputs[-1]["gc"], batch)
             else:
                 outputs[-1]["gc_pred"] = self.model.gc_lin(
@@ -37,7 +42,7 @@ class BaseTrainer(object):
         self.opt = opt
         self.optimizer = optimizer
         self.loss_stats, self.loss = self._get_losses(opt)
-        self.model_with_loss = ModleWithLoss(model, self.loss, opt.gc_with_roi)
+        self.model_with_loss = ModleWithLoss(model, self.loss, opt.gc_with_roi, opt.squared_bboxes, opt.move_px, opt.zoom_min, opt.zoom_max)
         self.optimizer.add_param_group({"params": self.loss.parameters()})
 
     def set_device(self, gpus, chunk_sizes, device):

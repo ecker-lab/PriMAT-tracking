@@ -1,5 +1,5 @@
 {
-	"root": "/usr/users/vogg/Labelling/Lemurs/",
+	"root": "/local/eckerlab/LemurLabellingNov22/",
 	"train":
 	{
 		"lemur_box_train": "./data/lemur_box_sep22.train"

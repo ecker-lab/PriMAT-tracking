@@ -352,31 +352,31 @@ class PoseHighResolutionNet(nn.Module):
         #)
         head_conv = 256
         for head in self.heads:
-            if head != "gc":
-                classes = self.heads[head]
-                if head_conv > 0:
-                    fc = nn.Sequential(
-                        nn.Conv2d(last_inp_channels, head_conv,
-                            kernel_size=3, padding=1, bias=True),
-                        nn.ReLU(inplace=True),
-                        nn.Conv2d(head_conv, classes, 
-                            kernel_size=final_kernel, stride=1, 
-                            padding=final_kernel // 2, bias=True))
-                    if 'hm' in head:
-                        fc[-1].bias.data.fill_(-2.19)
-                    else:
-                        fill_fc_weights(fc)
-                else:
-                    fc = nn.Conv2d(channels[self.first_level], classes, 
+            #if head != "gc":
+            classes = self.heads[head]
+            if head_conv > 0:
+                fc = nn.Sequential(
+                    nn.Conv2d(last_inp_channels, head_conv,
+                        kernel_size=3, padding=1, bias=True),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(head_conv, classes, 
                         kernel_size=final_kernel, stride=1, 
-                        padding=final_kernel // 2, bias=True)
-                    if 'hm' in head:
-                        fc.bias.data.fill_(-2.19)
-                    else:
-                        fill_fc_weights(fc)
-                self.__setattr__(head, fc)
+                        padding=final_kernel // 2, bias=True))
+                if 'hm' in head:
+                    fc[-1].bias.data.fill_(-2.19)
+                else:
+                    fill_fc_weights(fc)
+            else:
+                fc = nn.Conv2d(channels[self.first_level], classes, 
+                    kernel_size=final_kernel, stride=1, 
+                    padding=final_kernel // 2, bias=True)
+                if 'hm' in head:
+                    fc.bias.data.fill_(-2.19)
+                else:
+                    fill_fc_weights(fc)
+            self.__setattr__(head, fc)
 
-        print(self.heads)
+        #print(self.heads)
         if 'gc' in self.heads:
             if self.gc_with_roi:
                 self.gc_lin = LemurIdentityClassification(emb_dim=3, num_classes=num_gc_cls)
@@ -534,8 +534,8 @@ class PoseHighResolutionNet(nn.Module):
 
         z = {}
         for head in self.heads:
-            if head != "gc":
-                z[head] = self.__getattr__(head)(x)
+            #if head != "gc":
+            z[head] = self.__getattr__(head)(x)
 
         return [z]  
     
@@ -584,7 +584,9 @@ def get_pose_net(num_layers, heads, head_conv=256, down_ratio=4, num_gc_cls=5, c
                                 clsID4GC=clsID4GC,
                                 gc_with_roi=gc_with_roi
                                 )
-    
+
     #model.init_weights(cfg.MODEL.PRETRAINED)
+    
+
 
     return model

@@ -27,7 +27,8 @@ def write_results_dict(
     if data_type == "mot":
         save_format = "{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id}\n"
         if use_gc:
-            save_format_gc = "{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id}, {gc}, {gc_pred}, {gc_score}\n"
+            save_format_gc = "{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id}, {gc}, {gc_score}\n"
+            #save_format_gc = "{frame}, {id}, {x1}, {y1}, {w}, {h}, {score}, {cls_id}, {gc_score}, {gc_pred}\n"
     elif data_type == "kitti":
         save_format = "{frame} {id} pedestrian 0 0 -10 {x1} {y1} {x2} {y2} -10 -10 -10 -1000 -1000 -1000 -10\n"
     else:
@@ -58,7 +59,7 @@ def write_results_dict(
                             cls_id=cls_id,
                             gc=', '.join(map(str, gc_score)),
                             gc_pred=np.round(np.max(gc_score),2),
-                            gc_score=np.argmax(gc_score) if np.max(gc_score) > 0.9 else "7!",
+                            gc_score=np.argmax(gc_score),
                         )
                     else:
                         line = save_format.format(

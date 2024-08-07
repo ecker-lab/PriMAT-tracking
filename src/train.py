@@ -106,9 +106,9 @@ def main(opt):
     trainer = MotTrainer(opt, model, optimizer)
     trainer.set_device(opt.gpus, opt.chunk_sizes, opt.device)
 
-    if opt.load_model != '':
+    if opt.load_tracking_model != '':
         model, optimizer, start_epoch = load_model(
-            model, opt.load_model, trainer.optimizer, opt.resume, opt.lr, opt.lr_step)
+            model, opt.load_tracking_model, trainer.optimizer, opt.resume, opt.lr, opt.lr_step)
 
     lr = opt.lr
     for epoch in range(start_epoch + 1, opt.num_epochs + 1):

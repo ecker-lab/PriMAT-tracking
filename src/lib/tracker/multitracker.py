@@ -209,25 +209,36 @@ class JDETracker(object):
         print('Creating model...')
         if opt.use_gc:
             self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=opt.num_gc_cls, clsID4GC=opt.clsID4GC, gc_with_roi=opt.gc_with_roi)
-            #this line can be removed, is only needed for a fair evaluation of the ID models
-            model2 = create_model('hrnet_32', heads =  {'hm': 2, 'wh': 2, 'id': 128, 'reg': 2, 'gc': 3}, 
-                     head_conv = 256, num_gc_cls = 8, clsID4GC = 0, gc_with_roi = True)
+            #these lines can be removed, is only needed for a fair evaluation of the ID models
+            #model2 = create_model('hrnet_32', heads =  {'hm': 2, 'wh': 2, 'id': 128, 'reg': 2, 'gc': 3}, 
+            #         head_conv = 256, num_gc_cls = 8, clsID4GC = 0, gc_with_roi = True)
 
-            model2 = load_model(model2, '../exp/mot/lemur_ids_additional1/model_22.pth')
-            model2 = model2.to("cuda")
-            model2.eval()
+            #model2 = load_model(model2, '../exp/mot/lemur_ids_additional1/model_22.pth')
+            #model2 = model2.to("cuda")
+            #model2.eval()
         else:
             self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=None, clsID4GC=None, gc_with_roi=False)
-        self.model = load_model(self.model, opt.load_model)
+        #self.model = load_model(self.model, opt.load_model)
+        #if 'gc' in opt.heads:
+        if opt.gc_with_roi:
+            self.model.gc_lin.load_state_dict(torch.load(opt.load_id_model))
+
+        checkpoint_tracker = torch.load(opt.load_tracking_model)
+        #checkpoint_tracker = torch.load("/usr/users/vogg/monkey-tracking-in-the-wild/models/hrnet32_lemur_sep22.pth")
+        
+        #old method: both tracking and id
+        #checkpoint_tracker = torch.load("/usr/users/vogg/monkey-tracking-in-the-wild/exp/mot/final_ids/alpha/model_26.pth")
+        self.model.load_state_dict(checkpoint_tracker['state_dict'], strict = False)
+        #self.model.load_state_dict(checkpoint_tracker, strict = False)
         self.model = self.model.to(opt.device)
         self.model.eval()
 
         #this line can be removed, is only needed for a fair evaluation of the ID models
-        if opt.use_gc:
-            for (name1, module1), (name2, module2) in zip(self.model.named_modules(), model2.named_modules()):
-                if isinstance(module1, torch.nn.BatchNorm2d) and (not "gc_lin" in name1):
-                    module1.running_mean = module2.running_mean.clone()
-                    module1.running_var = module2.running_var.clone()
+        #if opt.use_gc:
+        #    for (name1, module1), (name2, module2) in zip(self.model.named_modules(), model2.named_modules()):
+        #        if isinstance(module1, torch.nn.BatchNorm2d) and (not "gc_lin" in name1):
+        #            module1.running_mean = module2.running_mean.clone()
+        #            module1.running_var = module2.running_var.clone()
 
 
         self.tracked_tracks_dict = defaultdict(list)
@@ -248,6 +259,7 @@ class JDETracker(object):
         self.buffered_iou = opt.buffered_iou
         self.double_kalman = opt.double_kalman
         self.use_buffered = opt.use_buffered_iou
+        self.squared_bboxes = opt.squared_bboxes
 
     def reset(self):
         """
@@ -377,7 +389,7 @@ class JDETracker(object):
                         output['gc_pred'], _ = self.model.gc_lin(im_blob, bboxes=[torch.tensor(cls_dets_orig[:, :4] / 4).cuda()])
                         output['gc_pred'] = output['gc_pred'].cpu().detach().numpy()
                     else:
-                        output['gc_pred'] = self.model.gc_lin(output['gc'], gc_inds)
+                        output['gc_pred'] = self.model.gc_lin(output['gc'], gc_inds) #, squared_bboxes=self.squared_bboxes
                         output['gc_pred'] = output['gc_pred'].squeeze().cpu().detach().numpy()
 
                 if self.opt.use_gc and (cls_id == self.opt.clsID4GC):
@@ -420,10 +432,10 @@ class JDETracker(object):
             emb_dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detects)
             iou_dists = matching.iou_distance(track_pool_dict[cls_id], cls_detects)
             dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
-            iou_dists_ind = (iou_dists > 0.6) #prevent box jumps
+            #iou_dists_ind = (iou_dists > 0.6) #prevent box jumps
 
             #pointwise multiplication of the two distance matrices
-            dists = dists + iou_dists_ind #np.multiply(dists, iou_dists_ind)
+            #dists = dists + iou_dists_ind #np.multiply(dists, iou_dists_ind)
             
             #print(dists)
 
@@ -447,6 +459,8 @@ class JDETracker(object):
 
 
             r_tracked_tracks_last_seen = track_pool_last_seen_dict
+            
+            '''
             if self.use_buffered:
 
                 cls_detects = [cls_detects[i] for i in u_detection]
@@ -461,8 +475,9 @@ class JDETracker(object):
                     det = cls_detects[idet]
                     track.update(cls_detects[idet], self.frame_id)
                     activated_tracks_dict[cls_id].append(track)
-
-
+            '''
+            
+            
             if self.double_kalman:
                 cls_detects = [cls_detects[i] for i in u_detection]
                 r_tracked_tracks = [r_tracked_tracks_last_seen[cls_id][i] for i in u_track] #r_tracked_tracks_last_seen[cls_id][i] if there is no use_buffered
@@ -475,11 +490,14 @@ class JDETracker(object):
                     track.update(det, self.frame_id)
                     activated_tracks_dict[cls_id].append(track)
 
-                for it in u_track:
+            for it in u_track:
+                if self.double_kalman:
                     track = r_tracked_tracks[it]
-                    if not track.state == TrackState.Lost:
-                        track.mark_lost()
-                        lost_tracks_dict[cls_id].append(track)
+                else:
+                    track = track_pool_dict[cls_id][it]
+                if not track.state == TrackState.Lost:
+                    track.mark_lost()
+                    lost_tracks_dict[cls_id].append(track)
 
 
             """ Step 4: Init new tracks"""
