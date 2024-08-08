@@ -27,9 +27,9 @@ for conf in 0.04 #0.01 0.02 0.04 0.1 0.2 0.4 #0.06 #0 0.1 0.2 0.3 0.4 0.5 0.6 0.
     do
     for sim in 0.8 #0.7 0.8 0.9
     do
-    for seed in 1 2 3
+    for seed in 1 #2 3
     do
-    for model in imagenet macaquecpw nopretrain #macaquecp
+    for model in macaquecp #imagenet macaquecpw nopretrain #
     do
 
     for prop in 0.8 #0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1
@@ -46,13 +46,13 @@ python demo.py mot  --load_tracking_model ../exp/mot/paper/macaques_"$model"_"$s
                     --new_overlap_thres 0.8\
                     --sim_thres "$sim"\
                     --input_video /usr/users/agecker/datasets/macaque_videos_eval/Videos/"$vid".mp4\
-                    --output_root ../videos/methods_paper_3seeds_epoch200/macaques_"$model"_"$seed"/\
+                    --output_root ../videos/video_dump/"$vid"\
                     --output_name "$vid"\
                     --store_opt\
                     --line_thickness 2\
                     --debug_info\
                     --arch hrnet_32\
-                    --output_format text\
+                    --output_format video\
                     --reid_cls_names "macaque"\
                     --proportion_iou "$prop"
                     #--double_kalman

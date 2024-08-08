@@ -29,9 +29,9 @@ for conf in 0.01 #0.01 0.02 0.04 0.1 0.2 0.4 #0.06 #0 0.1 0.2 0.3 0.4 0.5 0.6 0.
     do
     for sim in 0.8 #0.7 0.8 0.9
     do
-    for seed in 1 2 3
+    for seed in 1 #2 3
     do
-    for model in imagenet macaquecp macaquecpw nopretrain
+    for model in imagenet #macaquecp macaquecpw nopretrain
     do
 
     for prop in 0.8 #0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1
@@ -42,19 +42,20 @@ for conf in 0.01 #0.01 0.02 0.04 0.1 0.2 0.4 #0.06 #0 0.1 0.2 0.3 0.4 0.5 0.6 0.
 #../videos/methods_paper/lemurs_"$model"_"$i"_"$lr"\
 # ../videos/methods_paper_ablations/lemurs_"$conf"_"$det"_"$sim"_"$prop"/singlekalman/\
 #--output_root ../videos/methods_paper_ablations/lemursw_"$conf"_"$det"_"$sim"_"$prop"/doublekalman/\
+#../videos/methods_paper_3seeds_epoch200/lemurs_"$model"_"$seed"/\
 python demo.py mot  --load_tracking_model ../exp/mot/paper/lemur_"$model"_"$seed"_5e-5/model_"$out".pth\
                     --conf_thres "$conf"\
                     --det_thres "$det"\
                     --new_overlap_thres 0.8\
                     --sim_thres "$sim"\
                     --input_video /usr/users/agecker/datasets/lemur_videos_eval/Videos/"$vid".mp4\
-                    --output_root ../videos/methods_paper_3seeds_epoch200/lemurs_"$model"_"$seed"/\
+                    --output_root ../videos/video_dump/"$vid"\
                     --output_name "$vid"\
                     --store_opt\
                     --line_thickness 2\
                     --debug_info\
                     --arch hrnet_32\
-                    --output_format text\
+                    --output_format video\
                     --reid_cls_names "lemur,box"\
                     --proportion_iou "$prop"\
                     --double_kalman
