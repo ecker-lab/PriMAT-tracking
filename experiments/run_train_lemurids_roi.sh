@@ -1,3 +1,5 @@
+#! /bin/sh
+
 cd src
 
 python train.py mot --exp_id 'lemur_ids_cleaned1_squareroi_jitter_move_weightedids'\

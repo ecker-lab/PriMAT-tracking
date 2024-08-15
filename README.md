@@ -1,4 +1,4 @@
-# PrimateFairMOT: A robust multi-animal tracking model for primates in the wild
+# PriMAT: A robust multi-animal tracking model for primates in the wild
 
 ## Link to our paper
 when it is published

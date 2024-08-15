@@ -1,3 +1,5 @@
+#! /bin/sh
+
 cd src
 
 python train.py mot --exp_id lemurs_full\
