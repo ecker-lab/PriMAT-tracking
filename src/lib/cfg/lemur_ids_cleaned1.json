@@ -1,0 +1,23 @@
+{
+	"root": "../Labelling/Lemurs/Individual_imgs/",
+	"train":
+	{
+		"lemur_train": "./data/lemur_ids_cleaned1.train"
+	},
+    "gc_cnts":
+    {
+        "train":
+        {
+        "Cha": 100,
+        "Flo": 100,
+        "Gen": 100,
+        "Geo": 100, 
+        "Her": 100, 
+        "Rab": 100,
+        "Red": 100,
+        "Uns": 100
+        }
+    }
+    
+}
+

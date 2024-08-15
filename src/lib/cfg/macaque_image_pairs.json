@@ -1,0 +1,7 @@
+{
+	"root": "/local/eckerlab/",
+	"train":
+	{
+		"lemur_box_train": "/local/eckerlab/MacaqueImagePairs/macaque_image_pairs.train"
+	}
+}

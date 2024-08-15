@@ -1,0 +1,22 @@
+{
+	"root": "../Labelling/Lemurs/Individual_imgs/",
+	"train":
+	{
+		"lemur_train": "./data/lemur_ids_additional1.train"
+	},
+    "gc_cnts":
+    {
+        "train":
+        {
+        "Cha": 5,
+        "Flo": 46,
+        "Gen": 41,
+        "Geo": 61, 
+        "Her": 45, 
+        "Rab": 85,
+        "Red": 34,
+        "Uns": 87
+        }
+    }
+    
+}

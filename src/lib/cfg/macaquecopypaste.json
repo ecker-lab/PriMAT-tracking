@@ -1,0 +1,15 @@
+{
+    "root":"/local/eckerlab/",
+    "train":
+    {
+        "mot15":"./data/macaquecopypaste.train"
+    },
+    "test_emb":
+    {
+        "mot15":"./data/macaquepose.val"
+    },
+    "test":
+    {
+        "mot15":"./data/macaquepose.val"
+    }
+}

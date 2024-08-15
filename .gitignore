@@ -1,0 +1,15 @@
+/models
+/videos
+/exp
+/DCNv2
+/docker
+/slurm_files
+/TrackEval
+__pycache__/
+.ipynb_checkpoints
+*.code-workspace
+/testing
+=*
+*.png
+.trunk
+*.DS_Store
