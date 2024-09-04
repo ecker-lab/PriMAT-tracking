@@ -19,6 +19,12 @@ It can also be used to learn a classification task for each bounding box, e.g. f
 - Tracking and identifying lemurs
 ![Individual ID](material/e7_c4_identification.gif)
 
+## Try it out
+
+Train the tracking model and apply to a video:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ecker-lab/PriMAT-tracking/blob/main/notebooks/PriMAT_demo.ipynb)
+
 ## Setup
 
 - IMPORTANT NOTICE: if you have more than one GPU in your system you have to export one thats supported by cuda 10.2 for the entirety of the setup!
