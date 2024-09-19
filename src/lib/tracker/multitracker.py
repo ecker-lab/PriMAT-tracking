@@ -210,18 +210,41 @@ class JDETracker(object):
         if opt.use_gc:
             self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=opt.num_gc_cls, clsID4GC=opt.clsID4GC, gc_with_roi=opt.gc_with_roi)
             #these lines can be removed, is only needed for a fair evaluation of the ID models
-            #model2 = create_model('hrnet_32', heads =  {'hm': 2, 'wh': 2, 'id': 128, 'reg': 2, 'gc': 3}, 
-            #         head_conv = 256, num_gc_cls = 8, clsID4GC = 0, gc_with_roi = True)
+            if opt.fix_tracking_model:
+                model2 = create_model('hrnet_32', heads =  {'hm': 2, 'wh': 2, 'id': 128, 'reg': 2, 'gc': 3}, 
+                        head_conv = 256, num_gc_cls = 8, clsID4GC = 0, gc_with_roi = True)
 
-            #model2 = load_model(model2, '../exp/mot/lemur_ids_additional1/model_22.pth')
-            #model2 = model2.to("cuda")
-            #model2.eval()
+                model2 = load_model(model2, '../exp/mot/lemur_ids_additional1/model_22.pth')
+                model2 = model2.to("cuda")
+                model2.eval()
         else:
             self.model = create_model(opt.arch, opt.heads, opt.head_conv, num_gc_cls=None, clsID4GC=None, gc_with_roi=False)
         #self.model = load_model(self.model, opt.load_model)
         #if 'gc' in opt.heads:
         if opt.gc_with_roi:
-            self.model.gc_lin.load_state_dict(torch.load(opt.load_id_model))
+
+            # Load the state dictionary with map_location
+            state_dict = torch.load(opt.load_id_model, map_location='cuda:0')
+
+            # Initialize a new state dictionary
+            new_state_dict = {}
+
+            # Iterate through the original state dictionary
+            for key in state_dict:
+                # Replace 'fc.0' with 'fc' in the key
+                modified_key = key.replace('fc.0', 'fc')
+                
+                # Check if the modified key already has the 'cnn.' prefix
+                if modified_key.startswith('cnn.'):
+                    new_state_dict[modified_key] = state_dict[key]  # Keep the key as is
+                else:
+                    new_key = 'cnn.' + modified_key  # Add 'cnn.' prefix to the key
+                    new_state_dict[new_key] = state_dict[key]
+
+            # Load the modified state dictionary into the model
+            self.model.gc_lin.load_state_dict(new_state_dict)
+
+            #self.model.gc_lin.load_state_dict(torch.load(opt.load_id_model, map_location='cuda:0'))
 
         checkpoint_tracker = torch.load(opt.load_tracking_model)
         #checkpoint_tracker = torch.load("/usr/users/vogg/monkey-tracking-in-the-wild/models/hrnet32_lemur_sep22.pth")
@@ -233,12 +256,12 @@ class JDETracker(object):
         self.model = self.model.to(opt.device)
         self.model.eval()
 
-        #this line can be removed, is only needed for a fair evaluation of the ID models
-        #if opt.use_gc:
-        #    for (name1, module1), (name2, module2) in zip(self.model.named_modules(), model2.named_modules()):
-        #        if isinstance(module1, torch.nn.BatchNorm2d) and (not "gc_lin" in name1):
-        #            module1.running_mean = module2.running_mean.clone()
-        #            module1.running_var = module2.running_var.clone()
+
+        if opt.use_gc and opt.fix_tracking_model:
+            for (name1, module1), (name2, module2) in zip(self.model.named_modules(), model2.named_modules()):
+                if isinstance(module1, torch.nn.BatchNorm2d) and (not "gc_lin" in name1):
+                    module1.running_mean = module2.running_mean.clone()
+                    module1.running_var = module2.running_var.clone()
 
 
         self.tracked_tracks_dict = defaultdict(list)
@@ -432,10 +455,10 @@ class JDETracker(object):
             emb_dists = matching.embedding_distance(track_pool_dict[cls_id], cls_detects)
             iou_dists = matching.iou_distance(track_pool_dict[cls_id], cls_detects)
             dists = self.proportion_iou * iou_dists + (1 - self.proportion_iou) * emb_dists
-            #iou_dists_ind = (iou_dists > 0.6) #prevent box jumps
+            iou_dists_ind = (iou_dists > 0.6) #prevent box jumps
 
             #pointwise multiplication of the two distance matrices
-            #dists = dists + iou_dists_ind #np.multiply(dists, iou_dists_ind)
+            dists = dists + iou_dists_ind #np.multiply(dists, iou_dists_ind)
             
             #print(dists)
 

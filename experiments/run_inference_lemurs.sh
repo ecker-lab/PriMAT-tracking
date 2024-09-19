@@ -11,15 +11,15 @@ source activate /usr/users/vogg/.conda/envs/mktrack
 
 cd /usr/users/vogg/monkey-tracking-in-the-wild/src
 
-for group in B
+for group in J
 do
-for exp in 6
+for exp in 12
 do
 
-for vid in "$group"_e"$exp"_c1 #"$group"_e"$exp"_c2 "$group"_e"$exp"_c3 "$group"_e"$exp"_c4 "$group"_e"$exp"_c6 "$group"_e"$exp"_c7 "$group"_e"$exp"_c8 "$group"_e"$exp"_c9 #A_e2_c1 A_e2_c2 A_e2_c3 A_e2_c4 A_e2_c6 A_e2_c8 A_e2_c9 A_e3_c1 A_e3_c2 A_e3_c3 A_e3_c4 A_e3_c6 A_e3_c7 A_e3_c8 A_e3_c9 A_e4_c1 A_e4_c2 A_e4_c3 A_e4_c4 A_e4_c6 A_e4_c7 A_e4_c8 A_e4_c9 A_e5_c1 A_e5_c2 A_e5_c3 A_e5_c4 A_e5_c6 A_e5_c7 A_e5_c8 A_e5_c9
+for vid in "$group"_e"$exp"_c1 #"$group"_e"$exp"_c3 "$group"_e"$exp"_c4 "$group"_e"$exp"_c6 "$group"_e"$exp"_c7 "$group"_e"$exp"_c8 "$group"_e"$exp"_c9 #A_e2_c1 A_e2_c2 A_e2_c3 A_e2_c4 A_e2_c6 A_e2_c8 A_e2_c9 A_e3_c1 A_e3_c2 A_e3_c3 A_e3_c4 A_e3_c6 A_e3_c7 A_e3_c8 A_e3_c9 A_e4_c1 A_e4_c2 A_e4_c3 A_e4_c4 A_e4_c6 A_e4_c7 A_e4_c8 A_e4_c9 A_e5_c1 A_e5_c2 A_e5_c3 A_e5_c4 A_e5_c6 A_e5_c7 A_e5_c8 A_e5_c9
 #for vid in B_e_1_220918_c1 B_e_1_220918_c2 B_e_1_220918_c3 B_e_2_220919_c1 B_e_2_220919_c2 B_e_2_220919_c3 B_e_3_220921_c1 B_e_3_220921_c2 B_e_3_220921_c3
 #for vid in J_e_1_220918_c1 J_e_1_220918_c2 J_e_1_220918_c3 J_e_2_220919_c1 J_e_2_220919_c2 J_e_2_220919_c3 J_e_3_220920_c1 J_e_3_220920_c2 J_e_3_220920_c3
-#for vid in a_e_10_221008_c1 a_e_10_221008_c2 #a_e_7_221004_c1 a_e_8_221005_c1 a_e_8_221005_c2 a_e_9_221007_c1 a_e_9_221007_c2 #a_e_1_220918_c1 a_e_1_220918_c2 a_e_1_220918_c3 a_e_6_220928_c1 a_e_6_220928_c2
+#for vid in a_e_1_220918_c6 #a_e_4_220921_c2 a_e_5_220927_c1 a_e_5_220927_c2 a_e_7_221004_c3 #a_e_10_221008_c1 a_e_10_221008_c2 #a_e_7_221004_c1 a_e_8_221005_c1 a_e_8_221005_c2 a_e_9_221007_c1 a_e_9_221007_c2 #a_e_1_220918_c1 a_e_1_220918_c2 a_e_1_220918_c3 a_e_6_220928_c1 a_e_6_220928_c2
 
 # short snippets of new and old videos: Evalnew1 Evalnew2 Evalnew3 Evalnew4 Evalnew5 Evalnew6 Evalnew7 Evalnew8 Eval16 Eval17 Eval18 Eval19 Eval8 Eval9 Eval10 Eval11 Eval12 Eval13 Eval14 Eval15 #GX010035_cam6 
 # all experiments of round one alpha: a_e_1_220918_c1 a_e_1_220918_c2 a_e_1_220918_c3 a_e_1_220918_c4 a_e_1_220918_c6 a_e_1_220918_c7 a_e_1_220918_c8 a_e_1_220918_c9 a_e_2_220919_c1 a_e_2_220919_c2 a_e_2_220919_c3 a_e_2_220919_c4 a_e_2_220919_c6 a_e_2_220919_c7 a_e_2_220919_c8 a_e_2_220919_c9 a_e_3_220920_c1 a_e_3_220920_c2 a_e_3_220920_c3 a_e_3_220920_c4 a_e_3_220920_c6 a_e_3_220920_c7 a_e_3_220920_c8 a_e_3_220920_c9 a_e_4_220921_c1 a_e_4_220921_c2 a_e_4_220921_c3 a_e_4_220921_c4 a_e_4_220921_c6 a_e_4_220921_c7 a_e_4_220921_c8 a_e_4_220921_c9 a_e_5_220927_c1 a_e_5_220927_c2 a_e_5_220927_c3 a_e_5_220927_c4 a_e_5_220927_c6 a_e_5_220927_c7 a_e_5_220927_c8 a_e_5_220927_c9 a_e_6_220928_c1 a_e_6_220928_c2 a_e_6_220928_c3 a_e_6_220928_c4 a_e_6_220928_c6 a_e_6_220928_c7 a_e_6_220928_c8 a_e_6_220928_c9 a_e_7_221004_c1 a_e_7_221004_c2 a_e_7_221004_c3 a_e_7_221004_c4 a_e_7_221004_c6 a_e_7_221004_c7 a_e_7_221004_c8 a_e_7_221004_c9 a_e_9_221007_c1 a_e_9_221007_c2 a_e_9_221007_c3 a_e_9_221007_c4 a_e_9_221007_c6 a_e_9_221007_c7 a_e_9_221007_c8 a_e_9_221007_c9 a_e_10_221008_c1 a_e_10_221008_c2 a_e_10_221008_c3 a_e_10_221008_c4 a_e_10_221008_c6 a_e_10_221008_c7 a_e_10_221008_c8 a_e_10_221008_c9 #
@@ -32,15 +32,16 @@ do
     do
     
     out=$((i * 2))
-    
+#/usr/users/agecker/datasets/lemur_experiments_sep22/Converted/R1/"$vid".mp4\
 #--input_video /usr/users/agecker/datasets/lemur_experiments_apr23/Alpha/"$vid".mp4\
-#/usr/users/vogg/sfb1528s3/B06/2023april-july/NewBoxesClosed/Converted/Alpha/"$vid".mp4\
+#/usr/users/vogg/sfb1528s3/B06/2023april-july/NewBoxesClosed/Converted/R1/"$vid".mp4\
+#/usr/users/vogg/sfb1528s3/B06/2022Sept/Experiments_sync2/alpha/"$vid".mp4\
 python demo.py mot  --load_tracking_model ../exp/mot/lemurs_full/model_"$i".pth\
                     --conf_thres 0.02\
                     --det_thres 0.5\
                     --new_overlap_thres 0.8\
                     --sim_thres 0.8\
-                    --input_video /usr/users/agecker/datasets/lemur_experiments_apr23/B/"$vid".mp4\
+                    --input_video /usr/users/vogg/sfb1528s3/B06/2023april-july/NewBoxesClosed/Converted/J/"$vid".mp4\
                     --output_root ../videos/lemurs_full/model_"$i"/"$vid"/\
                     --output_name "$vid"\
                     --store_opt\

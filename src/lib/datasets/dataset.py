@@ -3,8 +3,10 @@ import glob
 import math
 import os
 import os.path as osp
+import pickle
 import random
 import time
+
 
 from collections import OrderedDict, defaultdict
 
@@ -22,8 +24,11 @@ from utils.utils import xywh2xyxy, xyxy2xywh
 
 import torch
 import torchvision
+from torchvision.transforms import Resize
 from torch.utils.data import Dataset
 from pathlib import Path
+import torch.nn.functional as F
+
 
 
 class ImageDataset(Dataset):
@@ -947,3 +952,112 @@ class JointDataset2(LoadImagesAndLabels):  # for training jointly for tracking a
             ret["box_lemur_class"] = class_box_lemur
 
         return ret
+
+
+class InteractionTripletDataset(Dataset):
+    def __init__(self, root, file_name):
+
+        path_to_file = os.path.join(root, file_name)
+        with open(path_to_file, 'rb') as file:
+            data = pickle.load(file)
+
+        self.data = data
+        self.root = root
+
+    def __len__(self):
+        return len(self.data)
+
+
+    def __getitem__(self, idx):
+        file_name = self.data[idx]['file_name']
+        bbox_subj, bbox_obj = self.data[idx]['bbox']
+        bbox_subj = [bbox_subj[0], bbox_subj[1], bbox_subj[0] + bbox_subj[2], bbox_subj[1] + bbox_subj[3]]
+        bbox_obj = [bbox_obj[0], bbox_obj[1], bbox_obj[0] + bbox_obj[2], bbox_obj[1] + bbox_obj[3]]
+        bbox_union = [min(bbox_subj[0], bbox_obj[0]), min(bbox_subj[1], bbox_obj[1]), max(bbox_subj[2], bbox_obj[2]), max(bbox_subj[3], bbox_obj[3])]
+        
+        bbox_subj = [torch.tensor([bbox_subj], dtype=torch.float32)] 
+        bbox_obj = [torch.tensor([bbox_obj], dtype=torch.float32)]
+        bbox_union = [torch.tensor([bbox_union], dtype=torch.float32)]
+        label = self.data[idx]['label']
+
+        
+
+        image = cv2.imread(os.path.join(self.root, file_name))
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = torch.tensor(image).permute(2, 0, 1)
+        image = image.float().unsqueeze(0)
+
+        # Crop out the regions of interest 
+        roi_subj = self.crop_and_pad(image=image, bbox=bbox_subj)
+        #torchvision.ops.roi_pool(
+        #    image, bbox_subj, output_size=[224, 224]
+        #)
+        subj = roi_subj.clone().detach().squeeze(0) #torch.tensor(roi_subj).squeeze(0)
+
+        roi_obj = self.crop_and_pad(image=image, bbox=bbox_obj)
+        #torchvision.ops.roi_pool(
+        #    image, bbox_obj, output_size=[224, 224]
+        #)
+        obj = roi_obj.clone().detach().squeeze(0) #torch.tensor(roi_obj).squeeze(0)
+
+        roi_union = self.crop_and_pad(image=image, bbox=bbox_union)
+        #torchvision.ops.roi_pool(    
+        #    image, bbox_union, output_size=[224, 224]
+        #)
+        union = roi_union.clone().detach().squeeze(0) #torch.tensor(roi_union).squeeze(0)
+
+        ret = {
+            'file_name': file_name,
+            'subj': subj,
+            'obj': obj,
+            'union': union,
+            'label': label
+        }
+
+        return ret
+    
+
+    def crop_and_pad(self, image, bbox, output_size=(224, 224)):
+        x1, y1, x2, y2 = bbox[0].squeeze().int().tolist()
+        # Extract the bounding box region from the image
+        cropped = image[:, :, y1:y2, x1:x2]  # Cropping the image using bounding box coordinates
+
+        # Get dimensions of the cropped region
+        h, w = cropped.shape[2:]
+
+        # Determine padding to make it square
+        if h > w:
+            padding = (h - w) // 2
+            padding_dims = (padding, h - w - padding, 0, 0)  # Pad left/right equally, no padding for top/bottom
+        else:
+            padding = (w - h) // 2
+            padding_dims = (0, 0, padding, w - h - padding)  # Pad top/bottom equally, no padding for left/right
+
+        # Apply padding to make the cropped region square
+        padded_square = F.pad(cropped, padding_dims, value=0)
+
+        # Resize the square to 224x224
+        resize_transform = Resize(output_size)
+        resized = resize_transform(padded_square)
+
+        return resized
+
+
+class CustomDataset(Dataset):
+    # Used for individual identification
+    def __init__(self, data, labels, transform=None):
+        self.data = data
+        self.labels = labels
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        sample = self.data[idx]
+        label = self.labels[idx]
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample, label

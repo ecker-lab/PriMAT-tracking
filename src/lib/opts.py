@@ -78,6 +78,14 @@ class opts(object):
     # additional heads
     self.parser.add_argument('--gc_dim', type=int, default=128,
                              help='feature dim for gc')
+    
+
+    self.parser.add_argument('--interaction_data_root', default='',
+                             help='folder where interaction data is stored')
+    self.parser.add_argument('--interaction_data_file', default='',
+                              help='path within root to pickle file')
+    self.parser.add_argument('--interaction_output_folder', default='',
+                              help='where are models stored')
 
     # input
     self.parser.add_argument('--input_h', type=int, default=608, 
@@ -121,6 +129,9 @@ class opts(object):
                              help='Wheter the tracking ID shall be printed next to the class name or above.')
     self.parser.add_argument('--debug_info', action='store_true',
                              help='Wheter scores of gc-labels shall be printed in top right corner.')
+
+    # identification
+    self.parser.add_argument('--fix_tracking_model', action = 'store_true', help = 'If true, the tracking model is fixed to create identical tracks for id evaluation.')
 
     # tracking
     self.parser.add_argument('--conf_thres', type=float, default=0.02, help='confidence threshold for tracking')

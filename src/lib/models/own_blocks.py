@@ -327,3 +327,55 @@ class General_Classification(nn.Module):
 
 #         pred_fix[inds[0]] = pred
         return pred
+
+
+
+class InteractionDetection(nn.Module):
+    def __init__(self, emb_dim=128, interaction_classes=2, ft_dim=128, act_fun=nn.ReLU):
+        super().__init__()
+        self.emb_dim = emb_dim
+
+        self.cnn = torchvision.models.resnet18(pretrained=True)
+        num_ftrs = self.cnn.fc.in_features
+        self.cnn.fc = nn.Identity()
+        
+        self.subj = nn.Sequential(
+            nn.Linear(num_ftrs, ft_dim),
+            act_fun(),
+            nn.Linear(ft_dim, emb_dim),
+        )
+        self.obj = nn.Sequential(
+            nn.Linear(num_ftrs, ft_dim),
+            act_fun(),
+            nn.Linear(ft_dim, emb_dim),
+        )
+        self.union = nn.Sequential(
+            nn.Linear(num_ftrs, ft_dim),
+            act_fun(),
+            nn.Linear(ft_dim, emb_dim),
+        )
+
+        self.mlp = nn.Sequential(
+            nn.Linear(emb_dim * 3, emb_dim), # for concat it was emb_dim * 3 * 3
+            act_fun(),
+            nn.Linear(emb_dim, interaction_classes),
+        )
+
+    def forward(self, gt_labels=None, subj=None, obj=None, union=None):
+        subj = self.cnn(subj)
+        obj = self.cnn(obj)
+        union = self.cnn(union)
+
+        subj = self.subj(subj)
+        obj = self.obj(obj)
+        union = self.union(union)
+
+        sou = torch.cat([subj, obj, union], dim=1)
+        suo = torch.cat([subj, union, obj], dim=1)
+        uso = torch.cat([union, subj, obj], dim=1)
+
+        #feats = torch.cat([sou, suo, uso], dim=1) # first try, concatenation
+        feats = sou + suo + uso # second try, addition
+        output = self.mlp(feats)
+
+        return output
