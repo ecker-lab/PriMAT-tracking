@@ -81,7 +81,7 @@ For individual identification (or other classification tasks), the class of each
 
 ## Pretrained models and datasets
 
-[Download here](https://owncloud.gwdg.de/index.php/s/Mq4m9k1B74cN6ys) model weights and datasets used in this publication.
+[Download here](https://data.goettingen-research-online.de/dataset.xhtml?persistentId=doi:10.25625/CMQY0Q) model weights and datasets used in this publication.
 
 ### Pretrained models and baseline models
 - Imagenet pretrained model
